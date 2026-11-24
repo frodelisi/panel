@@ -63,7 +63,7 @@ struct Config: Codable {
     var note = ""
     var dark = false                     // ljus panel som standard
     var slackUnreadOnly = true            // visa bara olästa Slack-meddelanden
-    var themeVersion = 2                 // äldre inställningar (mörk standard) byts till ljust en gång
+    var themeVersion = 3                 // äldre inställningar (mörk standard) byts till ljust en gång
     var calendarDays = 14
     var hideCalendarWords = ""           // kommaseparerade ord: händelser som innehåller dem visas inte
     var googleClientID = ""
@@ -71,7 +71,7 @@ struct Config: Codable {
     var refreshMinutes = 2
     var importantMail = true             // visa de viktigaste mailen i stället för de senaste
     var importantSenders = ""            // kommaseparerat: namn eller adresser som alltid kommer först
-    var unimportantWords = "no-reply, noreply, nyhetsbrev, newsletter, kvitto, receipt, faktura, invoice, order, levererad, delivered, erbjudande, rabatt"
+    var unimportantWords = "no-reply, noreply, nyhetsbrev, newsletter, kvitto, receipt, faktura, invoice, order, levererad, delivered, erbjudande, rabatt, facebook, instagram, linkedin, tiktok"
     var chatURL = "https://claude.ai/code/session_01B9wdk8mGJodFQjCvNRXVx8"   // kugghjulet öppnar chatten med Claude
 
     static var folder: URL {
@@ -83,9 +83,12 @@ struct Config: Codable {
     static func load() -> Config {
         guard let data = try? Data(contentsOf: file),
               var config = try? JSONDecoder().decode(Config.self, from: data) else { return Config() }
-        if config.themeVersion < 2 {
-            config.dark = false
-            config.themeVersion = 2
+        if config.themeVersion < 2 { config.dark = false }
+        if config.themeVersion < 3 && !config.unimportantWords.lowercased().contains("facebook") {
+            config.unimportantWords += ", facebook, instagram, linkedin, tiktok"
+        }
+        if config.themeVersion < 3 {
+            config.themeVersion = 3
             config.save()
         }
         return config
@@ -121,11 +124,54 @@ struct Config: Codable {
     }
 }
 
-/// Hemligheter (Slack-token, Google-nycklar) sparas i macOS nyckelring, inte i config-filen.
+/// Hemligheter (Slack-token, Google-nycklar). Sparas i en fil som bara ditt konto kan läsa
+/// (~/Library/Application Support/Panel/secrets.json), inte i nyckelringen: nyckelringen frågar
+/// om lösenord efter varje uppdatering, eftersom appen byggs om. Äldre nycklar flyttas över en gång.
 enum Keychain {
     private static let service = "se.panel.app"
+    private static var file: URL { Config.folder.appendingPathComponent("secrets.json") }
+    private static var cache: [String: String]?
+
+    private static func load() -> [String: String] {
+        if let cache { return cache }
+        let data = (try? Data(contentsOf: file)) ?? Data()
+        let values = (try? JSONDecoder().decode([String: String].self, from: data)) ?? [:]
+        cache = values
+        return values
+    }
+
+    private static func store(_ values: [String: String]) {
+        cache = values
+        try? FileManager.default.createDirectory(at: Config.folder, withIntermediateDirectories: true)
+        if let data = try? JSONEncoder().encode(values) {
+            try? data.write(to: file, options: .atomic)
+            try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.path)
+        }
+    }
 
     static func get(_ key: String) -> String? {
+        var values = load()
+        if let v = values[key] { return v.isEmpty ? nil : v }
+        // Flytta över från nyckelringen (en sista gång), sedan aldrig mer.
+        if !values.keys.contains("moved." + key) {
+            values["moved." + key] = "1"
+            if let old = oldKeychainValue(key) {
+                values[key] = old
+                deleteOldKeychainValue(key)
+            }
+            store(values)
+        }
+        return values[key]
+    }
+
+    static func set(_ value: String?, for key: String) {
+        var values = load()
+        values[key] = value ?? ""
+        values["moved." + key] = "1"
+        store(values)
+    }
+
+    private static func oldKeychainValue(_ key: String) -> String? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -138,16 +184,12 @@ enum Keychain {
         return String(data: data, encoding: .utf8)
     }
 
-    static func set(_ value: String?, for key: String) {
+    private static func deleteOldKeychainValue(_ key: String) {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: key,
         ]
         SecItemDelete(query as CFDictionary)
-        guard let value, !value.isEmpty else { return }
-        var add = query
-        add[kSecValueData as String] = Data(value.utf8)
-        SecItemAdd(add as CFDictionary, nil)
     }
 }

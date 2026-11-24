@@ -60,7 +60,8 @@ och panelen hämtar den själv inom en timme (eller direkt med "Sök efter ny ve
 - **viktigaste mailen**: olästa, flaggade och avsändare du väljer kommer först; kvitton, nyhetsbrev och no-reply sorteras bort
 
 Alla val sparas i `~/Library/Application Support/Panel/config.json`. Nycklar och tokens sparas i
-macOS nyckelring, aldrig i filen.
+`secrets.json` i samma mapp, som bara ditt konto på Macen kan läsa (inte i nyckelringen, som annars
+frågar om lösenord efter varje uppdatering).
 
 
 ## Ta bort

@@ -12,7 +12,7 @@ struct TaskItem: Identifiable, Hashable {
 }
 
 /// Google Tasks via Googles API. Inloggningen sker i webbläsaren en gång; sedan sparas en
-/// "refresh token" i nyckelringen så att panelen kan hämta och bocka av uppgifter själv.
+/// "refresh token" i en skyddad fil så att panelen kan hämta och bocka av uppgifter själv.
 enum GoogleTasks {
     private static let port: UInt16 = 8977
     private static var redirect: String { "http://127.0.0.1:\(port)" }
