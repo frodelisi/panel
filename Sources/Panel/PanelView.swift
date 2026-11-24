@@ -213,7 +213,7 @@ struct ModuleCard: View {
                     Text(s.text).foregroundColor(theme.dim).lineLimit(1)
                 }
             }
-            empty(store.slack.isEmpty, "Inget nytt i Slack")
+            empty(store.slack.isEmpty, store.config.slackUnreadOnly ? "Inget oläst i Slack 🎉" : "Inget nytt i Slack")
             Spacer(minLength: 0)
         }
     }

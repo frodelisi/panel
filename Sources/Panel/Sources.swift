@@ -163,39 +163,68 @@ struct SlackItem: Identifiable, Hashable {
 }
 
 enum SlackSource {
-    static func fetch(count: Int) async throws -> [SlackItem] {
-        guard let token = Keychain.get("slack"), !token.isEmpty else { throw PanelError("Koppla Slack i inställningarna") }
-        let since = Calendar.current.date(byAdding: .day, value: -3, to: Date()) ?? Date()
-        let day = DateFormatter()
-        day.dateFormat = "yyyy-MM-dd"
-        var c = URLComponents(string: "https://slack.com/api/search.messages")!
-        c.queryItems = [
-            URLQueryItem(name: "query", value: "after:\(day.string(from: since))"),
-            URLQueryItem(name: "sort", value: "timestamp"),
-            URLQueryItem(name: "sort_dir", value: "desc"),
-            URLQueryItem(name: "count", value: "\(max(1, count))"),
-        ]
+    private static var myUserID: String?
+
+    /// Anropar Slacks API med din token. Svarar med JSON, eller ett begripligt fel.
+    private static func call(_ method: String, _ params: [String: String], token: String) async throws -> [String: Any] {
+        var c = URLComponents(string: "https://slack.com/api/\(method)")!
+        c.queryItems = params.map { URLQueryItem(name: $0.key, value: $0.value) }
         var request = URLRequest(url: c.url!)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         let (data, _) = try await URLSession.shared.data(for: request)
         guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw PanelError("Konstigt svar från Slack") }
-        guard json["ok"] as? Bool == true else { throw PanelError("Slack: \(json["error"] as? String ?? "fel")") }
+        guard json["ok"] as? Bool == true else {
+            let error = json["error"] as? String ?? "fel"
+            if error == "missing_scope" { throw PanelError("Slack-appen behöver fler behörigheter för att visa olästa. Fråga Claude hur.") }
+            if error == "invalid_auth" || error == "token_revoked" { throw PanelError("Slack-token fungerar inte längre. Klistra in en ny i inställningarna.") }
+            throw PanelError("Slack: \(error)")
+        }
+        return json
+    }
+
+    static func fetch(count: Int, unreadOnly: Bool) async throws -> [SlackItem] {
+        guard let token = Keychain.get("slack"), !token.isEmpty else { throw PanelError("Koppla Slack i inställningarna") }
+        if myUserID == nil { myUserID = try await call("auth.test", [:], token: token)["user_id"] as? String }
+
+        let since = Calendar.current.date(byAdding: .day, value: unreadOnly ? -7 : -3, to: Date()) ?? Date()
+        let day = DateFormatter()
+        day.dateFormat = "yyyy-MM-dd"
+        let json = try await call("search.messages", [
+            "query": "after:\(day.string(from: since))", "sort": "timestamp", "sort_dir": "desc",
+            "count": "\(unreadOnly ? 60 : max(1, count))",
+        ], token: token)
         let matches = ((json["messages"] as? [String: Any])?["matches"] as? [[String: Any]]) ?? []
-        return matches.map { m in
+
+        var items: [(item: SlackItem, channel: String, ts: Double)] = matches.compactMap { m in
             let channel = m["channel"] as? [String: Any] ?? [:]
             let isDM = (channel["is_im"] as? Bool ?? false) || (channel["is_mpim"] as? Bool ?? false)
             let name = channel["name"] as? String ?? ""
             let team = m["team"] as? String ?? ""
             let channelID = channel["id"] as? String ?? ""
-            let ts = Double(m["ts"] as? String ?? "") ?? 0
+            let tsText = m["ts"] as? String ?? ""
+            let ts = Double(tsText) ?? 0
+            if unreadOnly, let me = myUserID, m["user"] as? String == me { return nil }   // dina egna är redan lästa
             let link = URL(string: "slack://channel?team=\(team)&id=\(channelID)") ?? (m["permalink"] as? String).flatMap(URL.init(string:))
-            return SlackItem(id: (m["iid"] as? String) ?? (channelID + "\(ts)"),
-                             who: m["username"] as? String ?? "",
-                             place: isDM ? "DM" : "#\(name)",
-                             text: clean(m["text"] as? String ?? ""),
-                             date: Date(timeIntervalSince1970: ts),
-                             link: link)
+            let item = SlackItem(id: channelID + tsText,
+                                 who: m["username"] as? String ?? "",
+                                 place: isDM ? "DM" : "#\(name)",
+                                 text: clean(m["text"] as? String ?? ""),
+                                 date: Date(timeIntervalSince1970: ts),
+                                 link: link)
+            return (item, channelID, ts)
         }
+
+        if unreadOnly {
+            // Var läste du senast i varje kanal? Allt efter det är oläst.
+            var lastRead: [String: Double] = [:]
+            for channel in Array(Set(items.map(\.channel))).prefix(25) {
+                let info = try await call("conversations.info", ["channel": channel], token: token)
+                let read = (info["channel"] as? [String: Any])?["last_read"] as? String
+                lastRead[channel] = Double(read ?? "") ?? 0
+            }
+            items = items.filter { $0.ts > (lastRead[$0.channel] ?? 0) }
+        }
+        return Array(items.map(\.item).prefix(max(1, count)))
     }
 
     /// Slack skriver länkar och omnämnanden som <https://…|text> och <@U123>.

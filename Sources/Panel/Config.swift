@@ -62,6 +62,7 @@ struct Config: Codable {
     ]
     var note = ""
     var dark = false                     // ljus panel som standard
+    var slackUnreadOnly = true            // visa bara olästa Slack-meddelanden
     var themeVersion = 2                 // äldre inställningar (mörk standard) byts till ljust en gång
     var calendarDays = 14
     var hideCalendarWords = ""           // kommaseparerade ord: händelser som innehåller dem visas inte
@@ -113,6 +114,7 @@ struct Config: Codable {
         refreshMinutes = (try? c.decode(Int.self, forKey: .refreshMinutes)) ?? d.refreshMinutes
         chatURL = (try? c.decode(String.self, forKey: .chatURL)) ?? d.chatURL
         themeVersion = (try? c.decode(Int.self, forKey: .themeVersion)) ?? 0
+        slackUnreadOnly = (try? c.decode(Bool.self, forKey: .slackUnreadOnly)) ?? d.slackUnreadOnly
         importantMail = (try? c.decode(Bool.self, forKey: .importantMail)) ?? d.importantMail
         importantSenders = (try? c.decode(String.self, forKey: .importantSenders)) ?? d.importantSenders
         unimportantWords = (try? c.decode(String.self, forKey: .unimportantWords)) ?? d.unimportantWords

@@ -96,6 +96,7 @@ struct SettingsView: View {
             }
 
             Section("Slack") {
+                Toggle("Visa bara olästa meddelanden", isOn: $store.config.slackUnreadOnly)
                 SecureField("Användar-token (börjar med xoxp-)", text: $slackToken)
                 HStack {
                     Button("Spara") {
