@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     let store: Store
     var controller: PanelController?
     var settingsWindow: NSWindow?
@@ -46,11 +46,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             window.title = "Panel – inställningar"
             window.contentView = NSHostingView(rootView: SettingsView(store: store))
             window.isReleasedWhenClosed = false
+            window.delegate = self
             window.center()
             settingsWindow = window
         }
-        NSApp.activate(ignoringOtherApps: true)
+        // Medan inställningarna är öppna är Panel en vanlig app (med meny), så att man kan skriva och klistra in.
+        NSApp.setActivationPolicy(.regular)
+        NSApp.mainMenu = Self.makeMenu()
         settingsWindow?.makeKeyAndOrderFront(nil)
+        if #available(macOS 14.0, *) { NSApp.activate() } else { NSApp.activate(ignoringOtherApps: true) }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in self?.settingsWindow?.makeKeyAndOrderFront(nil) }
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        // Tillbaka till osynlig app (ingen ikon i Docken).
+        DispatchQueue.main.async { NSApp.setActivationPolicy(.accessory) }
+    }
+
+    /// Arkiv- och Redigera-meny: utan dem fungerar inte Cmd+V, Cmd+C, Cmd+A och Cmd+W.
+    static func makeMenu() -> NSMenu {
+        let main = NSMenu()
+        let appItem = NSMenuItem()
+        let appMenu = NSMenu()
+        appMenu.addItem(withTitle: "Stäng fönstret", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        appMenu.addItem(withTitle: "Avsluta Panel", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appItem.submenu = appMenu
+        main.addItem(appItem)
+
+        let editItem = NSMenuItem()
+        let edit = NSMenu(title: "Redigera")
+        edit.addItem(withTitle: "Ångra", action: Selector(("undo:")), keyEquivalent: "z")
+        edit.addItem(withTitle: "Gör om", action: Selector(("redo:")), keyEquivalent: "Z")
+        edit.addItem(.separator())
+        edit.addItem(withTitle: "Klipp ut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        edit.addItem(withTitle: "Kopiera", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        edit.addItem(withTitle: "Klistra in", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        edit.addItem(withTitle: "Markera allt", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        editItem.submenu = edit
+        main.addItem(editItem)
+        return main
     }
 }
 

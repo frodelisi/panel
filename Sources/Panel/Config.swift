@@ -62,6 +62,7 @@ struct Config: Codable {
     ]
     var note = ""
     var dark = false                     // ljus panel som standard
+    var themeVersion = 2                 // äldre inställningar (mörk standard) byts till ljust en gång
     var calendarDays = 14
     var hideCalendarWords = ""           // kommaseparerade ord: händelser som innehåller dem visas inte
     var googleClientID = ""
@@ -80,7 +81,12 @@ struct Config: Codable {
 
     static func load() -> Config {
         guard let data = try? Data(contentsOf: file),
-              let config = try? JSONDecoder().decode(Config.self, from: data) else { return Config() }
+              var config = try? JSONDecoder().decode(Config.self, from: data) else { return Config() }
+        if config.themeVersion < 2 {
+            config.dark = false
+            config.themeVersion = 2
+            config.save()
+        }
         return config
     }
 
@@ -106,6 +112,7 @@ struct Config: Codable {
         newTaskList = (try? c.decode(String.self, forKey: .newTaskList)) ?? d.newTaskList
         refreshMinutes = (try? c.decode(Int.self, forKey: .refreshMinutes)) ?? d.refreshMinutes
         chatURL = (try? c.decode(String.self, forKey: .chatURL)) ?? d.chatURL
+        themeVersion = (try? c.decode(Int.self, forKey: .themeVersion)) ?? 0
         importantMail = (try? c.decode(Bool.self, forKey: .importantMail)) ?? d.importantMail
         importantSenders = (try? c.decode(String.self, forKey: .importantSenders)) ?? d.importantSenders
         unimportantWords = (try? c.decode(String.self, forKey: .unimportantWords)) ?? d.unimportantWords

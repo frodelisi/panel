@@ -1,17 +1,19 @@
 import SwiftUI
 
+/// Ljust som iOS: frostat glas, vita kort, mjuka skuggor. Mörkt finns kvar som val.
 struct Theme {
     var dark: Bool
-    var tint: Color { dark ? Color.black.opacity(0.42) : Color.white.opacity(0.35) }
-    var card: Color { dark ? Color.white.opacity(0.055) : Color.white.opacity(0.65) }
-    var field: Color { dark ? Color.white.opacity(0.08) : Color.black.opacity(0.05) }
-    var hover: Color { dark ? Color.white.opacity(0.07) : Color.black.opacity(0.045) }
-    var text: Color { dark ? Color(white: 0.96) : Color(white: 0.1) }
-    var dim: Color { dark ? Color(white: 0.66) : Color(white: 0.4) }
-    var faint: Color { dark ? Color(white: 0.45) : Color(white: 0.6) }
-    var edge: Color { dark ? Color.white.opacity(0.09) : Color.white.opacity(0.7) }
-    let accent = Color(red: 1.0, green: 0.62, blue: 0.35)
-    let unread = Color(red: 0.25, green: 0.6, blue: 1.0)
+    var tint: Color { dark ? Color.black.opacity(0.42) : Color(red: 0.97, green: 0.96, blue: 0.95).opacity(0.55) }
+    var card: Color { dark ? Color.white.opacity(0.055) : Color.white.opacity(0.82) }
+    var cardShadow: Color { dark ? Color.clear : Color(red: 0.35, green: 0.25, blue: 0.15).opacity(0.08) }
+    var field: Color { dark ? Color.white.opacity(0.08) : Color(red: 0.46, green: 0.46, blue: 0.5).opacity(0.1) }
+    var hover: Color { dark ? Color.white.opacity(0.07) : Color(red: 0.46, green: 0.46, blue: 0.5).opacity(0.08) }
+    var text: Color { dark ? Color(white: 0.96) : Color(red: 0.11, green: 0.11, blue: 0.12) }
+    var dim: Color { dark ? Color(white: 0.66) : Color(red: 0.24, green: 0.24, blue: 0.26).opacity(0.62) }
+    var faint: Color { dark ? Color(white: 0.45) : Color(red: 0.24, green: 0.24, blue: 0.26).opacity(0.4) }
+    var edge: Color { dark ? Color.white.opacity(0.09) : Color.white.opacity(0.9) }
+    let accent = Color(red: 1.0, green: 0.58, blue: 0.0)          // iOS orange
+    var unread: Color { Color(red: 0.0, green: 0.48, blue: 1.0) }  // iOS blå
 }
 
 let cardWidth: CGFloat = 256
@@ -32,7 +34,7 @@ struct Blur: NSViewRepresentable {
         return v
     }
     func updateNSView(_ v: NSVisualEffectView, context: Context) {
-        v.material = dark ? .hudWindow : .popover
+        v.material = dark ? .hudWindow : .sidebar
         v.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
     }
 }
@@ -63,9 +65,9 @@ struct PanelView: View {
         }
         .padding(16)
         .background(ZStack { Blur(dark: store.config.dark); theme.tint })
-        .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 30, style: .continuous).strokeBorder(theme.edge, lineWidth: 0.5))
-        .shadow(color: .black.opacity(store.config.dark ? 0.45 : 0.18), radius: 28, y: 16)
+        .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 32, style: .continuous).strokeBorder(theme.edge, lineWidth: 0.75))
+        .shadow(color: Color(red: 0.3, green: 0.2, blue: 0.1).opacity(store.config.dark ? 0.45 : 0.16), radius: 30, y: 18)
         .font(.system(size: 13))
         .scaleEffect(motion.open ? 1 : 0.9, anchor: .top)
         .opacity(motion.open ? 1 : 0)
@@ -86,6 +88,7 @@ struct PanelView: View {
             }
             Spacer(minLength: 40)
             Text(Date.now.formatted(.dateTime.weekday(.wide).day().month(.wide).hour().minute()))
+                .font(.system(size: 13, weight: .medium, design: .rounded))
                 .foregroundColor(theme.dim)
             HeaderButton(symbol: "arrow.clockwise", help: "Hämta nytt", theme: theme) { Task { await store.refresh() } }
             HeaderButton(symbol: "slider.horizontal.3", help: "Inställningar och konton", theme: theme) { store.openSettings() }
@@ -133,8 +136,8 @@ struct ModuleCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 7) {
-                Image(systemName: module.kind.symbol).font(.system(size: 11.5, weight: .semibold))
-                Text(module.title).font(.system(size: 12.5, weight: .semibold))
+                Image(systemName: module.kind.symbol).font(.system(size: 12, weight: .semibold))
+                Text(module.title).font(.system(size: 13, weight: .semibold, design: .rounded))
                 Spacer()
             }
             .foregroundColor(theme.dim)
@@ -155,7 +158,8 @@ struct ModuleCard: View {
         }
         .padding(16)
         .frame(width: cardWidth, height: cardHeight, alignment: .topLeading)
-        .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(theme.card))
+        .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(theme.card)
+            .shadow(color: theme.cardShadow, radius: 10, y: 3))
     }
 
     /// Kontonamnet visas bara när mailen kommer från fler än ett konto.
@@ -347,7 +351,7 @@ struct DayBadge: View {
             Text(date.formatted(.dateTime.weekday(.abbreviated)).uppercased()).font(.system(size: 9, weight: .semibold))
             Text(date.formatted(.dateTime.day())).font(.system(size: 17, weight: .semibold))
         }
-        .foregroundColor(hot ? Color(white: 0.08) : theme.text)
+        .foregroundColor(hot ? .white : theme.text)
         .frame(width: 40, height: 40)
         .background(hot ? theme.accent : theme.field)
         .clipShape(RoundedRectangle(cornerRadius: 10))
