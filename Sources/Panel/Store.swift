@@ -10,6 +10,7 @@ final class Store: ObservableObject {
     @Published var events: [EventItem] = []
     @Published var tasks: [TaskItem] = []
     @Published var weather: WeatherNow?
+    @Published var invites: [Invite] = []
     @Published var music: MusicNow?
     @Published var problems: [ModuleKind: String] = [:]
     @Published var googleStatus = ""
@@ -47,15 +48,23 @@ final class Store: ObservableObject {
         let mailOn = isOn(.mail), slackOn = isOn(.slack), calOn = isOn(.calendar), taskOn = isOn(.tasks)
         let days = config.calendarDays, hide = config.hideCalendarWords, clientID = config.googleClientID
         let slackUnread = config.slackUnreadOnly
+        let googleAccounts = Google.accounts, gmailQuery = config.gmailQuery
+        let tasksAccount = taskAccount
         let rules = MailRules(important: config.importantMail, senders: config.importantSenders, unimportant: config.unimportantWords)
 
-        // Alla fyra hämtas samtidigt.
-        async let m = Store.attempt(mailOn) { try await MailSource.fetch(count: mailN, rules: rules) }
+        // Allt hämtas samtidigt.
+        // Gmail när Google-konton är inloggade, annars Mail-appen.
+        async let m = Store.attempt(mailOn) { () async throws -> [MailItem] in
+            if googleAccounts.isEmpty { return try await MailSource.fetch(count: mailN, rules: rules) }
+            return try await Gmail.important(accounts: googleAccounts, clientID: clientID, query: gmailQuery, count: mailN, rules: rules)
+        }
+        async let inv = Store.loadInvites(mailOn, googleAccounts, clientID)
         async let s = Store.attempt(slackOn) { try await SlackSource.fetch(count: slackN, unreadOnly: slackUnread) }
         async let e = Store.attempt(calOn) { try await CalendarSource.fetch(days: days, count: calN, hideWords: hide) }
-        async let t = Store.attempt(taskOn) { try await GoogleTasks.fetch(clientID: clientID, count: taskN) }
+        async let t = Store.attempt(taskOn) { try await GoogleTasks.fetch(account: tasksAccount, clientID: clientID, count: taskN) }
 
         apply(.mail, await m) { self.mail = $0 }
+        invites = await inv
         apply(.slack, await s) { self.slack = $0 }
         apply(.calendar, await e) { self.events = $0 }
         apply(.tasks, await t) { self.tasks = $0 }
@@ -80,6 +89,11 @@ final class Store: ObservableObject {
             try? await Task.sleep(nanoseconds: 350_000_000)
             await refreshMusic()
         }
+    }
+
+    nonisolated static func loadInvites(_ on: Bool, _ accounts: [String], _ clientID: String) async -> [Invite] {
+        if !on || accounts.isEmpty { return [] }
+        return await Gmail.invites(accounts: accounts, clientID: clientID)
     }
 
     nonisolated static func attempt<T>(_ on: Bool, _ fetch: () async throws -> T) async -> Result<T, Error>? {
@@ -107,7 +121,7 @@ final class Store: ObservableObject {
     func complete(_ task: TaskItem) {
         tasks.removeAll { $0.id == task.id }      // försvinner direkt, Google uppdateras i bakgrunden
         Task {
-            do { try await GoogleTasks.complete(task, clientID: config.googleClientID) }
+            do { try await GoogleTasks.complete(task, account: taskAccount, clientID: config.googleClientID) }
             catch { problems[.tasks] = error.localizedDescription; await refresh() }
         }
     }
@@ -117,7 +131,7 @@ final class Store: ObservableObject {
         guard !t.isEmpty else { return }
         Task {
             do {
-                try await GoogleTasks.add(t, listTitle: config.newTaskList, clientID: config.googleClientID)
+                try await GoogleTasks.add(t, listTitle: config.newTaskList, account: taskAccount, clientID: config.googleClientID)
                 await refresh()
             } catch { problems[.tasks] = error.localizedDescription }
         }
@@ -127,10 +141,26 @@ final class Store: ObservableObject {
         googleStatus = "Öppnar Google i webbläsaren…"
         Task {
             do {
-                try await GoogleTasks.signIn(clientID: config.googleClientID.trimmingCharacters(in: .whitespaces))
-                googleStatus = "Kopplad ✓"
+                let email = try await Google.addAccount(clientID: config.googleClientID.trimmingCharacters(in: .whitespaces))
+                googleStatus = "\(email) är inloggad ✓"
                 await refresh()
             } catch { googleStatus = error.localizedDescription }
+        }
+    }
+
+    /// Kontot där att göra-listan ligger: det valda, annars det första (eller den gamla inloggningen).
+    var taskAccount: String? {
+        let chosen = config.tasksAccount.trimmingCharacters(in: .whitespaces).lowercased()
+        if !chosen.isEmpty, Google.accounts.contains(chosen) { return chosen }
+        return Google.hasLegacy ? nil : Google.accounts.first
+    }
+
+    /// Svara på en inbjudan. Den försvinner direkt; Google meddelar den som bjöd in.
+    func respond(_ invite: Invite, _ status: String) {
+        invites.removeAll { $0.id == invite.id }
+        Task {
+            do { try await Gmail.respond(invite, status: status, clientID: config.googleClientID) }
+            catch { problems[.mail] = error.localizedDescription; await refresh() }
         }
     }
 

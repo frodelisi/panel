@@ -13,15 +13,17 @@ struct SettingsView: View {
     var body: some View {
         Form {
             Section("Konton") {
-                AccountRow(symbol: "envelope", name: "Mail", status: store.problems[.mail] ?? "Läses från Mail-appen ✓") {
-                    NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/Mail.app"))
+                AccountRow(symbol: "envelope", name: "Gmail",
+                           status: store.problems[.mail] ?? (Google.accounts.isEmpty ? "Inget Google-konto – läser Mail-appen" : Google.accounts.joined(separator: ", ")),
+                           button: "Lägg till konto") {
+                    store.signInGoogle()
                 }
                 AccountRow(symbol: "calendar", name: "Kalender", status: store.problems[.calendar] ?? "Läses från Kalender-appen ✓", button: "Ge åtkomst") {
                     Task { _ = await CalendarSource.requestAccess(); await store.refresh() }
                 }
                 AccountRow(symbol: "checkmark.circle", name: "Google Tasks",
-                           status: GoogleTasks.isConnected ? "Inloggad ✓" : "Inte inloggad – fyll i nyckeln längre ner",
-                           button: "Logga in") {
+                           status: store.problems[.tasks] ?? (store.taskAccount ?? (Google.hasLegacy ? "Inloggad ✓" : "Inte inloggad")),
+                           button: "Lägg till konto") {
                     store.signInGoogle()
                 }
                 AccountRow(symbol: "number", name: "Slack", status: Keychain.get("slack") == nil ? "Inte kopplad – klistra in token längre ner" : "Kopplad ✓",
@@ -83,17 +85,32 @@ struct SettingsView: View {
                 }
             }
 
-            Section("Google Tasks") {
+            Section("Google (Gmail, inbjudningar och Google Tasks)") {
                 TextField("Client ID", text: $store.config.googleClientID)
                 SecureField("Client secret", text: $clientSecret)
                     .onChange(of: clientSecret) { Keychain.set($0, for: "google.secret") }
-                TextField("Nya uppgifter hamnar i listan", text: $store.config.newTaskList)
-                HStack {
-                    Button(GoogleTasks.isConnected ? "Logga in igen" : "Logga in med Google") { store.signInGoogle() }
-                    if GoogleTasks.isConnected { Button("Logga ut") { GoogleTasks.signOut(); store.googleStatus = "Utloggad" } }
-                    Text(store.googleStatus.isEmpty ? (GoogleTasks.isConnected ? "Kopplad ✓" : "Inte kopplad") : store.googleStatus)
-                        .foregroundColor(.secondary)
+                ForEach(Google.accounts, id: \.self) { email in
+                    HStack {
+                        Image(systemName: "person.crop.circle").foregroundColor(.secondary)
+                        Text(email)
+                        Spacer()
+                        Button("Ta bort") { Google.removeAccount(email); store.googleStatus = "\(email) borttaget"; Task { await store.refresh() } }
+                    }
                 }
+                HStack {
+                    Button("Lägg till Google-konto") { store.signInGoogle() }
+                    Text(store.googleStatus).foregroundColor(.secondary)
+                }
+                Text("Lägg till både ditt privata och ditt jobbkonto. Varje konto loggas in en gång i webbläsaren.")
+                    .font(.caption).foregroundColor(.secondary)
+                TextField("Vilka mail räknas som viktiga (Gmail-sökning)", text: $store.config.gmailQuery)
+                if !Google.accounts.isEmpty {
+                    Picker("Att göra-listan ligger i", selection: $store.config.tasksAccount) {
+                        Text("Första kontot").tag("")
+                        ForEach(Google.accounts, id: \.self) { Text($0).tag($0) }
+                    }
+                }
+                TextField("Nya uppgifter hamnar i listan", text: $store.config.newTaskList)
             }
 
             Section("Slack") {

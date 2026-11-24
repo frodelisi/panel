@@ -73,6 +73,8 @@ struct Config: Codable {
     var dark = false                     // ljus panel som standard
     var slackUnreadOnly = true            // visa bara olästa Slack-meddelanden
     var weatherCity = "Stockholm"
+    var gmailQuery = "in:inbox is:important category:primary newer_than:14d"   // vilka mail som räknas som viktiga
+    var tasksAccount = ""                 // vilket Google-konto att göra-listan ligger i (tomt = första)
     var themeVersion = 4                 // äldre inställningar (mörk standard) byts till ljust en gång
     var calendarDays = 14
     var hideCalendarWords = ""           // kommaseparerade ord: händelser som innehåller dem visas inte
@@ -134,6 +136,8 @@ struct Config: Codable {
         themeVersion = (try? c.decode(Int.self, forKey: .themeVersion)) ?? 0
         slackUnreadOnly = (try? c.decode(Bool.self, forKey: .slackUnreadOnly)) ?? d.slackUnreadOnly
         weatherCity = (try? c.decode(String.self, forKey: .weatherCity)) ?? d.weatherCity
+        gmailQuery = (try? c.decode(String.self, forKey: .gmailQuery)) ?? d.gmailQuery
+        tasksAccount = (try? c.decode(String.self, forKey: .tasksAccount)) ?? d.tasksAccount
         importantMail = (try? c.decode(Bool.self, forKey: .importantMail)) ?? d.importantMail
         importantSenders = (try? c.decode(String.self, forKey: .importantSenders)) ?? d.importantSenders
         unimportantWords = (try? c.decode(String.self, forKey: .unimportantWords)) ?? d.unimportantWords

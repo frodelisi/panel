@@ -28,7 +28,11 @@ Om bygget misslyckas skapas filen `~/Panel/build-fel.txt`. Skicka den till Claud
 
 ## Koppla in dina saker (en gång)
 
-**Mail** – läses från Mail-appen. Se till att ditt mailkonto finns i Mail. Första gången frågar macOS
+**Gmail och inbjudningar** – när du lagt till Google-konton (se nedan) visas de viktigaste mailen från
+alla konton (Gmails egen "viktigt"-markering i Primär), och kalenderinbjudningar du inte svarat på, med
+Ja / Kanske / Nej. Klick på ett mail öppnar det i Gmail i rätt konto. Utan Google-konto läses Mail-appen.
+
+**Mail-appen (om inget Google-konto)** – läses från Mail-appen. Se till att ditt mailkonto finns i Mail. Första gången frågar macOS
 om Panel får styra Mail: svara OK. Klickar du på ett mail öppnas det i Mail.
 
 **Deadlines** – läses från Kalender-appen. Lägg till ditt Google-konto i Systeminställningar →
@@ -36,11 +40,12 @@ Internetkonton och slå på Kalendrar. Svara OK när macOS frågar om Panel får
 
 **Google Tasks** – kräver en egen nyckel från Google (gratis, cirka 5 minuter):
 1. Gå till console.cloud.google.com och skapa ett projekt (t.ex. "Panel").
-2. Sök upp **Google Tasks API** och tryck Aktivera.
+2. Aktivera tre API:er (sök upp dem och tryck Aktivera): **Google Tasks API**, **Gmail API** och **Google Calendar API**.
 3. Under **OAuth-samtyckesskärm**: välj Extern, fyll i namn och din e-post, lägg till dig själv som testanvändare.
    Byt sedan publiceringsstatus till **I produktion**. Annars loggas du ut efter 7 dagar.
 4. Under **Inloggningsuppgifter**: Skapa → OAuth-klient-ID → Typ: **Skrivbordsapp**.
-5. Kopiera Client ID och Client secret in i Panels inställningar och tryck **Logga in med Google**.
+5. Kopiera Client ID och Client secret in i Panels inställningar och tryck **Lägg till Google-konto**.
+   Gör det en gång per konto (t.ex. privat och jobb). Välj sedan vilket konto att göra-listan ligger i.
    Google varnar att appen inte är verifierad. Det är din egen app, så tryck Avancerat → Fortsätt.
 
 **Slack** – kräver en token:

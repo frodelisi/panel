@@ -202,7 +202,11 @@ struct ModuleCard: View {
     }
 
     private var mail: some View {
+        ScrollView(showsIndicators: false) {
         VStack(alignment: .leading, spacing: 0) {
+            ForEach(store.invites) { invite in
+                InviteRow(invite: invite, theme: theme, store: store)
+            }
             ForEach(store.mail) { m in
                 Row(theme: theme) { store.open(m) } content: {
                     HStack(spacing: 6) {
@@ -219,8 +223,8 @@ struct ModuleCard: View {
                     Text(m.subject).foregroundColor(theme.dim).lineLimit(1)
                 }
             }
-            empty(store.mail.isEmpty, "Inga mail")
-            Spacer(minLength: 0)
+            empty(store.mail.isEmpty && store.invites.isEmpty, "Inga viktiga mail 🎉")
+        }
         }
     }
 
@@ -471,5 +475,52 @@ struct MusicButton: View {
         }
         .buttonStyle(.plain)
         .onHover { h in withAnimation(.easeOut(duration: 0.12)) { hover = h } }
+    }
+}
+
+/// En kalenderinbjudan med svarsknappar.
+struct InviteRow: View {
+    var invite: Invite
+    var theme: Theme
+    @ObservedObject var store: Store
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Text("Inbjudan").font(.system(size: 10, weight: .semibold)).foregroundColor(.white)
+                    .padding(.horizontal, 6).padding(.vertical, 1.5)
+                    .background(Capsule().fill(theme.accent))
+                Text(invite.title).fontWeight(.semibold).foregroundColor(theme.text).lineLimit(1)
+            }
+            Text(when).font(.system(size: 11.5)).foregroundColor(theme.dim).lineLimit(1)
+            HStack(spacing: 6) {
+                answer("Ja", "accepted", color: Color(red: 0.2, green: 0.78, blue: 0.35))
+                answer("Kanske", "tentative", color: theme.dim)
+                answer("Nej", "declined", color: Color(red: 1, green: 0.27, blue: 0.23))
+            }
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(theme.accent.opacity(0.08)))
+        .padding(.bottom, 8)
+    }
+
+    private var when: String {
+        var parts: [String] = []
+        if let start = invite.start {
+            parts.append(relativeDay(start))
+            if !invite.allDay { parts.append(start.formatted(date: .omitted, time: .shortened)) }
+        }
+        if !invite.organizer.isEmpty { parts.append(invite.organizer) }
+        return parts.joined(separator: " · ")
+    }
+
+    private func answer(_ label: String, _ status: String, color: Color) -> some View {
+        Button { withAnimation(panelSpring) { store.respond(invite, status) } } label: {
+            Text(label).font(.system(size: 12, weight: .semibold)).foregroundColor(color)
+                .frame(maxWidth: .infinity).padding(.vertical, 5)
+                .background(Capsule().fill(theme.card))
+        }
+        .buttonStyle(.plain)
     }
 }

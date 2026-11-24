@@ -13,6 +13,7 @@ struct MailItem: Identifiable, Hashable {
     var flagged: Bool
     var date: Date?
     var account: String = ""
+    var link: URL? = nil       // Gmail: öppnas i webbläsaren i rätt konto
 }
 
 /// Vad som räknas som viktigt. Allt går att ändra i inställningarna.
@@ -26,6 +27,11 @@ struct MailRules {
         let split = { (s: String) in s.lowercased().split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty } }
         self.senders = split(senders)
         self.unimportant = split(unimportant)
+    }
+
+    func isUnimportant(_ m: MailItem) -> Bool {
+        let text = (m.sender + " " + m.address + " " + m.subject).lowercased()
+        return unimportant.contains { text.contains($0) } && !senders.contains { (m.sender + " " + m.address).lowercased().contains($0) }
     }
 
     func score(_ m: MailItem) -> Double {
@@ -101,6 +107,7 @@ enum MailSource {
     }
 
     static func open(_ item: MailItem) {
+        if let link = item.link { NSWorkspace.shared.open(link); return }
         var allowed = CharacterSet.urlPathAllowed
         allowed.remove(charactersIn: "<>")
         let id = item.id.addingPercentEncoding(withAllowedCharacters: allowed) ?? item.id
