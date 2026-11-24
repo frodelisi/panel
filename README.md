@@ -3,6 +3,10 @@
 För musen upp till kameran, så fälls en panel ner med dina senaste mail, Slack, deadlines och att göra.
 På Mac mini (ingen kamera i skärmen) för du musen till mitten av skärmens överkant.
 
+Första installationen ger också Macen det ljusa utseendet: mjuk ljus bakgrund och en Docka som syns
+längst ner med bara dina egna appar. Widgetar lägger du till som vanligt (högerklicka på skrivbordet →
+Redigera widgetar…).
+
 Allt annat på Macen fungerar som vanligt. Menyraden, Docken, Spotlight och Kontrollcenter rörs inte,
 och panelen lägger sig under menyraden.
 
@@ -52,7 +56,8 @@ och panelen hämtar den själv inom en timme (eller direkt med "Sök efter ny ve
 **Reglagen** (knappen bredvid kugghjulet) öppnar inställningarna, där du kopplar konton och kan ändra själv:
 - slå på och av delar, byt namn, ändra ordning och hur många rader som visas
 - lägg till **Genvägar** (webbsidor eller appar) och **Anteckningar**
-- mörk eller ljus panel, hur många dagar framåt deadlines visas, och ord som döljer kalenderhändelser
+- ljus eller mörk panel, hur många dagar framåt deadlines visas, och ord som döljer kalenderhändelser
+- **viktigaste mailen**: olästa, flaggade och avsändare du väljer kommer först; kvitton, nyhetsbrev och no-reply sorteras bort
 
 Alla val sparas i `~/Library/Application Support/Panel/config.json`. Nycklar och tokens sparas i
 macOS nyckelring, aldrig i filen.
@@ -60,4 +65,4 @@ macOS nyckelring, aldrig i filen.
 
 ## Ta bort
 
-Kör `avinstallera.command`.
+Kör `~/Panel/avinstallera.command`. Bakgrunden och Docken blir som de var innan.

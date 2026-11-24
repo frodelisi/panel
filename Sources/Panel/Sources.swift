@@ -7,26 +7,56 @@ import Foundation
 struct MailItem: Identifiable, Hashable {
     var id: String          // Message-ID, används för att öppna mailet i Mail
     var sender: String
+    var address: String
     var subject: String
     var unread: Bool
+    var flagged: Bool
     var date: Date?
+}
+
+/// Vad som räknas som viktigt. Allt går att ändra i inställningarna.
+struct MailRules {
+    var important: Bool
+    var senders: [String]
+    var unimportant: [String]
+
+    init(important: Bool, senders: String, unimportant: String) {
+        self.important = important
+        let split = { (s: String) in s.lowercased().split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty } }
+        self.senders = split(senders)
+        self.unimportant = split(unimportant)
+    }
+
+    func score(_ m: MailItem) -> Double {
+        let who = (m.sender + " " + m.address).lowercased()
+        let text = (who + " " + m.subject).lowercased()
+        var s = 0.0
+        if senders.contains(where: { who.contains($0) }) { s += 6 }
+        if m.flagged { s += 4 }
+        if m.unread { s += 2 }
+        if unimportant.contains(where: { text.contains($0) }) { s -= 5 }
+        if let d = m.date { s -= Date().timeIntervalSince(d) / 86_400 }   // en poäng mindre per dygn
+        return s
+    }
 }
 
 enum MailSource {
     private static let queue = DispatchQueue(label: "panel.mail")
 
-    static func fetch(count: Int) async throws -> [MailItem] {
-        try await withCheckedThrowingContinuation { cont in
+    static func fetch(count: Int, rules: MailRules) async throws -> [MailItem] {
+        // För "viktigaste" läses fler mail, sedan väljs de bästa.
+        let read = rules.important ? max(count * 6, 30) : count + 4
+        let items: [MailItem] = try await withCheckedThrowingContinuation { cont in
             queue.async {
                 let script = """
                 tell application "Mail"
                     set out to ""
                     set n to count of messages of inbox
-                    if n > \(max(1, count) + 4) then set n to \(max(1, count) + 4)
+                    if n > \(read) then set n to \(read)
                     repeat with i from 1 to n
                         set m to message i of inbox
                         set d to (date received of m) as «class isot» as string
-                        set out to out & (message id of m) & tab & (sender of m) & tab & (subject of m) & tab & (read status of m) & tab & d & linefeed
+                        set out to out & (message id of m) & tab & (sender of m) & tab & (subject of m) & tab & (read status of m) & tab & (flagged status of m) & tab & d & linefeed
                     end repeat
                     return out
                 end tell
@@ -42,13 +72,17 @@ enum MailSource {
                 parser.timeZone = .current
                 let items: [MailItem] = (result.stringValue ?? "").split(separator: "\n").compactMap { line in
                     let f = line.components(separatedBy: "\t")
-                    guard f.count >= 5 else { return nil }
-                    return MailItem(id: f[0], sender: cleanSender(f[1]), subject: f[2], unread: f[3] == "false", date: parser.date(from: f[4]))
+                    guard f.count >= 6 else { return nil }
+                    return MailItem(id: f[0], sender: cleanSender(f[1]), address: f[1], subject: f[2],
+                                    unread: f[3] == "false", flagged: f[4] == "true", date: parser.date(from: f[5]))
                 }
-                let newest = items.sorted { ($0.date ?? .distantPast) > ($1.date ?? .distantPast) }
-                cont.resume(returning: Array(newest.prefix(max(1, count))))
+                cont.resume(returning: items)
             }
         }
+        let sorted = rules.important
+            ? items.sorted { rules.score($0) > rules.score($1) }
+            : items.sorted { ($0.date ?? .distantPast) > ($1.date ?? .distantPast) }
+        return Array(sorted.prefix(max(1, count)))
     }
 
     /// "Molly Andersson <molly@…>" → "Molly Andersson"

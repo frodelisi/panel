@@ -14,6 +14,7 @@ final class PanelController {
     private let store: Store
     private let panel: FloatingPanel
     private let hosting: NSHostingView<PanelView>
+    private let motion: Motion
     private var timer: Timer?
     private var hoverSince: Date?
     private var outsideSince: Date?
@@ -22,17 +23,19 @@ final class PanelController {
 
     init(store: Store) {
         self.store = store
-        hosting = NSHostingView(rootView: PanelView(store: store))
+        let motion = Motion()
+        self.motion = motion
+        hosting = NSHostingView(rootView: PanelView(store: store, motion: motion))
         panel = FloatingPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         panel.isOpaque = false
         panel.backgroundColor = .clear
-        panel.hasShadow = true
+        panel.hasShadow = false          // skuggan ritas av panelen själv
         panel.level = .statusBar
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
         panel.isMovable = false
         panel.hidesOnDeactivate = false
         panel.contentView = hosting
-        panel.alphaValue = 0
+        panel.ignoresMouseEvents = true
 
         store.layoutChanged = { [weak self] in self?.resize() }
         timer = Timer.scheduledTimer(withTimeInterval: 0.08, repeats: true) { [weak self] _ in
@@ -69,7 +72,7 @@ final class PanelController {
         }
 
         // Ligger musen kvar över panelen eller kameran? Annars stäng efter en kort stund.
-        let inside = NSMouseInRect(mouse, panel.frame.insetBy(dx: -24, dy: -24), false) || NSMouseInRect(mouse, hotspot(on: screen), false)
+        let inside = NSMouseInRect(mouse, panel.frame.insetBy(dx: 20, dy: 0), false) || NSMouseInRect(mouse, hotspot(on: screen), false)
         let typing = panel.isKeyWindow && panel.firstResponder is NSTextView   // stäng inte mitt i en text
         if inside || typing {
             outsideSince = nil
@@ -85,8 +88,8 @@ final class PanelController {
         let top = screen.visibleFrame.maxY            // precis under menyraden, så att menyraden alltid syns
         let center = screen.auxiliaryTopLeftArea.map { f.minX + $0.width + (f.width - $0.width - (screen.auxiliaryTopRightArea?.width ?? 0)) / 2 } ?? f.midX
         var x = center - size.width / 2
-        x = min(max(x, f.minX + 8), f.maxX - size.width - 8)
-        return NSRect(x: x, y: top - size.height - 4, width: size.width, height: size.height)
+        x = min(max(x, f.minX - 36), f.maxX - size.width + 36)
+        return NSRect(x: x, y: top - size.height + 2, width: size.width, height: size.height)
     }
 
     func show(on screen: NSScreen? = nil) {
@@ -94,32 +97,23 @@ final class PanelController {
         isShown = true
         hoverSince = nil
         if Date().timeIntervalSince(store.lastRefresh) > 30 { Task { await store.refresh() } }
-        let frame = targetFrame(on: screen)
-        panel.setFrame(frame.offsetBy(dx: 0, dy: 10), display: true)
+        panel.setFrame(targetFrame(on: screen), display: true)
+        panel.ignoresMouseEvents = false
         panel.orderFrontRegardless()
-        NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.2
-            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            self.panel.animator().setFrame(frame, display: true)
-            self.panel.animator().alphaValue = 1
-        }
+        // Panelen fjädrar ner från kameran; korten följer efter en i taget (se PanelView).
+        withAnimation(panelSpring) { motion.open = true }
     }
 
     func hide() {
         guard isShown else { return }
         isShown = false
         outsideSince = nil
-        let frame = panel.frame
-        NSAnimationContext.runAnimationGroup({ ctx in
-            ctx.duration = 0.16
-            self.panel.animator().setFrame(frame.offsetBy(dx: 0, dy: 8), display: true)
-            self.panel.animator().alphaValue = 0
-        }, completionHandler: { [weak self] in
-            Task { @MainActor in
-                guard let self, !self.isShown else { return }
-                self.panel.orderOut(nil)
-            }
-        })
+        panel.ignoresMouseEvents = true
+        withAnimation(.spring(response: 0.3, dampingFraction: 1)) { motion.open = false }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+            guard let self, !self.isShown else { return }
+            self.panel.orderOut(nil)
+        }
     }
 
     /// När delar läggs till eller tas bort ändras panelens storlek.

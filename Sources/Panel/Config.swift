@@ -61,12 +61,15 @@ struct Config: Codable {
         LinkItem(name: "Mail", target: "/System/Applications/Mail.app"),
     ]
     var note = ""
-    var dark = true
+    var dark = false                     // ljus panel som standard
     var calendarDays = 14
     var hideCalendarWords = ""           // kommaseparerade ord: händelser som innehåller dem visas inte
     var googleClientID = ""
     var newTaskList = "Mina uppgifter"    // listan i Google Tasks som nya uppgifter hamnar i
     var refreshMinutes = 2
+    var importantMail = true             // visa de viktigaste mailen i stället för de senaste
+    var importantSenders = ""            // kommaseparerat: namn eller adresser som alltid kommer först
+    var unimportantWords = "no-reply, noreply, nyhetsbrev, newsletter, kvitto, receipt, faktura, invoice, order, levererad, delivered, erbjudande, rabatt"
     var chatURL = "https://claude.ai/code/session_01B9wdk8mGJodFQjCvNRXVx8"   // kugghjulet öppnar chatten med Claude
 
     static var folder: URL {
@@ -103,6 +106,9 @@ struct Config: Codable {
         newTaskList = (try? c.decode(String.self, forKey: .newTaskList)) ?? d.newTaskList
         refreshMinutes = (try? c.decode(Int.self, forKey: .refreshMinutes)) ?? d.refreshMinutes
         chatURL = (try? c.decode(String.self, forKey: .chatURL)) ?? d.chatURL
+        importantMail = (try? c.decode(Bool.self, forKey: .importantMail)) ?? d.importantMail
+        importantSenders = (try? c.decode(String.self, forKey: .importantSenders)) ?? d.importantSenders
+        unimportantWords = (try? c.decode(String.self, forKey: .unimportantWords)) ?? d.unimportantWords
     }
 }
 

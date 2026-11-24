@@ -2,66 +2,96 @@ import SwiftUI
 
 struct Theme {
     var dark: Bool
-    var panel: Color { dark ? Color(white: 0.045) : Color(white: 0.97) }
-    var card: Color { dark ? Color(white: 0.095) : Color.white }
-    var field: Color { dark ? Color(white: 0.14) : Color(white: 0.93) }
-    var text: Color { dark ? Color(white: 0.95) : Color(white: 0.1) }
-    var dim: Color { dark ? Color(white: 0.68) : Color(white: 0.38) }
-    var faint: Color { dark ? Color(white: 0.42) : Color(white: 0.6) }
-    var line: Color { dark ? Color(white: 0.16) : Color(white: 0.9) }
+    var tint: Color { dark ? Color.black.opacity(0.42) : Color.white.opacity(0.35) }
+    var card: Color { dark ? Color.white.opacity(0.055) : Color.white.opacity(0.65) }
+    var field: Color { dark ? Color.white.opacity(0.08) : Color.black.opacity(0.05) }
+    var hover: Color { dark ? Color.white.opacity(0.07) : Color.black.opacity(0.045) }
+    var text: Color { dark ? Color(white: 0.96) : Color(white: 0.1) }
+    var dim: Color { dark ? Color(white: 0.66) : Color(white: 0.4) }
+    var faint: Color { dark ? Color(white: 0.45) : Color(white: 0.6) }
+    var edge: Color { dark ? Color.white.opacity(0.09) : Color.white.opacity(0.7) }
     let accent = Color(red: 1.0, green: 0.62, blue: 0.35)
-    let unread = Color(red: 0.04, green: 0.52, blue: 1.0)
+    let unread = Color(red: 0.25, green: 0.6, blue: 1.0)
 }
 
-let cardWidth: CGFloat = 252
-let cardHeight: CGFloat = 268
+let cardWidth: CGFloat = 256
+let cardHeight: CGFloat = 272
+
+/// Öppen eller stängd. Ändras med animation av PanelController.
+final class Motion: ObservableObject {
+    @Published var open = false
+}
+
+/// macOS egna genomskinliga bakgrund (som Kontrollcenter).
+struct Blur: NSViewRepresentable {
+    var dark: Bool
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let v = NSVisualEffectView()
+        v.blendingMode = .behindWindow
+        v.state = .active
+        return v
+    }
+    func updateNSView(_ v: NSVisualEffectView, context: Context) {
+        v.material = dark ? .hudWindow : .popover
+        v.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
+    }
+}
+
+/// Fjädern som används överallt, så att allt rör sig likadant.
+let panelSpring = Animation.spring(response: 0.46, dampingFraction: 0.84)
 
 struct PanelView: View {
     @ObservedObject var store: Store
+    @ObservedObject var motion: Motion
     var theme: Theme { Theme(dark: store.config.dark) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 14) {
             header
             HStack(alignment: .top, spacing: 12) {
-                ForEach(store.enabledModules) { module in
+                ForEach(Array(store.enabledModules.enumerated()), id: \.element.id) { index, module in
                     ModuleCard(module: module, store: store, theme: theme)
+                        .opacity(motion.open ? 1 : 0)
+                        .offset(y: motion.open ? 0 : -12)
+                        .animation(motion.open ? panelSpring.delay(0.06 + 0.045 * Double(index)) : .easeOut(duration: 0.12), value: motion.open)
                 }
                 if store.enabledModules.isEmpty {
-                    Text("Inga delar är på. Tryck på kugghjulet för att välja vad panelen ska visa.")
+                    Text("Inga delar är på. Tryck på reglageknappen för att välja vad panelen ska visa.")
                         .foregroundColor(theme.dim).frame(width: cardWidth * 2, height: 80)
                 }
             }
         }
-        .padding(.horizontal, 18).padding(.top, 12).padding(.bottom, 18)
-        .background(theme.panel)
+        .padding(16)
+        .background(ZStack { Blur(dark: store.config.dark); theme.tint })
         .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 30, style: .continuous).stroke(theme.line, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 30, style: .continuous).strokeBorder(theme.edge, lineWidth: 0.5))
+        .shadow(color: .black.opacity(store.config.dark ? 0.45 : 0.18), radius: 28, y: 16)
         .font(.system(size: 13))
+        .scaleEffect(motion.open ? 1 : 0.9, anchor: .top)
+        .opacity(motion.open ? 1 : 0)
+        .blur(radius: motion.open ? 0 : 8)
+        .padding(.horizontal, 44).padding(.bottom, 56).padding(.top, 6)   // plats för skuggan
         .fixedSize()
+        .environment(\.colorScheme, store.config.dark ? .dark : .light)
     }
 
     private var header: some View {
         HStack(spacing: 10) {
             if let next = nextUp {
-                Circle().fill(theme.accent).frame(width: 7, height: 7)
-                Text(next).foregroundColor(theme.text).fontWeight(.medium)
-            }
-            if nextUp == nil && Updater.updatedRecently && !Updater.version.isEmpty {
+                Circle().fill(theme.accent).frame(width: 6, height: 6)
+                Text(next).foregroundColor(theme.text).fontWeight(.medium).lineLimit(1)
+            } else if Updater.updatedRecently && !Updater.version.isEmpty {
                 Image(systemName: "sparkles").foregroundColor(theme.faint)
                 Text("Ny version: \(Updater.version)").foregroundColor(theme.faint).lineLimit(1)
             }
             Spacer(minLength: 40)
             Text(Date.now.formatted(.dateTime.weekday(.wide).day().month(.wide).hour().minute()))
                 .foregroundColor(theme.dim)
-            Button { Task { await store.refresh() } } label: { Image(systemName: "arrow.clockwise") }
-                .buttonStyle(.plain).foregroundColor(theme.dim).help("Hämta nytt")
-            Button { store.openSettings() } label: { Image(systemName: "slider.horizontal.3") }
-                .buttonStyle(.plain).foregroundColor(theme.dim).help("Inställningar och konton")
-            Button { LinkOpener.open(store.config.chatURL) } label: { Image(systemName: "gearshape") }
-                .buttonStyle(.plain).foregroundColor(theme.dim).help("Ändra panelen med Claude")
+            HeaderButton(symbol: "arrow.clockwise", help: "Hämta nytt", theme: theme) { Task { await store.refresh() } }
+            HeaderButton(symbol: "slider.horizontal.3", help: "Inställningar och konton", theme: theme) { store.openSettings() }
+            HeaderButton(symbol: "gearshape", help: "Ändra panelen med Claude", theme: theme) { LinkOpener.open(store.config.chatURL) }
         }
-        .padding(.horizontal, 6).frame(height: 28)
+        .padding(.horizontal, 6).frame(height: 26)
     }
 
     /// Det viktigaste just nu: närmaste deadline i dag eller i morgon.
@@ -74,6 +104,27 @@ struct PanelView: View {
     }
 }
 
+struct HeaderButton: View {
+    var symbol: String
+    var help: String
+    var theme: Theme
+    var action: () -> Void
+    @State private var hover = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 12.5, weight: .medium))
+                .foregroundColor(hover ? theme.text : theme.dim)
+                .frame(width: 26, height: 26)
+                .background(Circle().fill(hover ? theme.hover : Color.clear))
+        }
+        .buttonStyle(.plain)
+        .help(help)
+        .onHover { h in withAnimation(.easeOut(duration: 0.12)) { hover = h } }
+    }
+}
+
 struct ModuleCard: View {
     var module: Module
     @ObservedObject var store: Store
@@ -82,24 +133,32 @@ struct ModuleCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 7) {
-                Image(systemName: module.kind.symbol)
-                Text(module.title.uppercased()).kerning(0.8)
+                Image(systemName: module.kind.symbol).font(.system(size: 11.5, weight: .semibold))
+                Text(module.title).font(.system(size: 12.5, weight: .semibold))
                 Spacer()
             }
-            .font(.system(size: 11.5, weight: .semibold)).foregroundColor(theme.dim)
+            .foregroundColor(theme.dim)
 
             if let problem = store.problems[module.kind] {
                 Text(problem).foregroundColor(theme.faint).fixedSize(horizontal: false, vertical: true)
+                if needsLogin {
+                    Button { store.openSettings() } label: {
+                        Text("Koppla").fontWeight(.medium).foregroundColor(theme.text)
+                            .padding(.horizontal, 14).padding(.vertical, 6)
+                            .background(Capsule().fill(theme.field))
+                    }.buttonStyle(.plain)
+                }
                 Spacer(minLength: 0)
             } else {
                 content
             }
         }
-        .padding(15)
+        .padding(16)
         .frame(width: cardWidth, height: cardHeight, alignment: .topLeading)
-        .background(theme.card)
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(theme.card))
     }
+
+    private var needsLogin: Bool { module.kind == .tasks || module.kind == .slack || module.kind == .calendar }
 
     @ViewBuilder private var content: some View {
         switch module.kind {
@@ -209,7 +268,8 @@ struct TasksCard: View {
                     ForEach(store.tasks) { t in
                         HStack(spacing: 10) {
                             Button { store.complete(t) } label: {
-                                Circle().stroke(theme.faint, lineWidth: 1.5).frame(width: 16, height: 16)
+                                Circle().strokeBorder(theme.faint, lineWidth: 1.4).frame(width: 17, height: 17)
+                                    .contentShape(Circle())
                             }.buttonStyle(.plain).help("Bocka av")
                             Text(t.title).foregroundColor(theme.text).lineLimit(1)
                             Spacer(minLength: 4)
@@ -260,13 +320,12 @@ struct Row<Content: View>: View {
             VStack(alignment: .leading, spacing: 2) { content }
                 .padding(.vertical, 7).padding(.horizontal, 6)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(hover ? theme.field : Color.clear)
-                .clipShape(RoundedRectangle(cornerRadius: 9))
+                .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(hover ? theme.hover : Color.clear))
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .padding(.horizontal, -6)
-        .onHover { hover = $0 }
+        .onHover { h in withAnimation(.easeOut(duration: 0.12)) { hover = h } }
     }
 }
 

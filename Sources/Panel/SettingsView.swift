@@ -12,6 +12,30 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
+            Section("Konton") {
+                AccountRow(symbol: "envelope", name: "Mail", status: store.problems[.mail] ?? "Läses från Mail-appen ✓") {
+                    NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/Mail.app"))
+                }
+                AccountRow(symbol: "calendar", name: "Kalender", status: store.problems[.calendar] ?? "Läses från Kalender-appen ✓", button: "Ge åtkomst") {
+                    Task { _ = await CalendarSource.requestAccess(); await store.refresh() }
+                }
+                AccountRow(symbol: "checkmark.circle", name: "Google Tasks",
+                           status: GoogleTasks.isConnected ? "Inloggad ✓" : "Inte inloggad – fyll i nyckeln längre ner",
+                           button: "Logga in") {
+                    store.signInGoogle()
+                }
+                AccountRow(symbol: "number", name: "Slack", status: Keychain.get("slack") == nil ? "Inte kopplad – klistra in token längre ner" : "Kopplad ✓",
+                           button: "Skapa token") {
+                    LinkOpener.open("https://api.slack.com/apps")
+                }
+            }
+
+            Section("Mail") {
+                Toggle("Visa de viktigaste mailen (annars de senaste)", isOn: $store.config.importantMail)
+                TextField("Viktiga avsändare, t.ex. molly, skolan.se, mamma", text: $store.config.importantSenders)
+                TextField("Oviktigt (sorteras bort): ord i avsändare eller ämne", text: $store.config.unimportantWords)
+            }
+
             Section("Delar i panelen") {
                 ForEach($store.config.modules) { $module in
                     HStack(spacing: 10) {
@@ -113,6 +137,24 @@ struct SettingsView: View {
         open.canChooseDirectories = false
         if open.runModal() == .OK, let url = open.url {
             store.config.links.append(LinkItem(name: url.deletingPathExtension().lastPathComponent, target: url.path))
+        }
+    }
+}
+
+struct AccountRow: View {
+    var symbol: String
+    var name: String
+    var status: String
+    var button = "Öppna"
+    var action: () -> Void
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: symbol).frame(width: 18)
+            Text(name).frame(width: 110, alignment: .leading)
+            Text(status).foregroundColor(.secondary).lineLimit(1)
+            Spacer()
+            Button(button, action: action)
         }
     }
 }

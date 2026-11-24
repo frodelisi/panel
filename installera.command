@@ -68,6 +68,23 @@ else
   date '+%e %b %H:%M' | sed 's/^ //' > "$SUPPORT/version"
 fi
 
+# Första installationen: ljus bakgrund och en Docka som syns (sparar hur det var, så att avinstallera.command kan ångra).
+if [ $TYST = 0 ] && [ ! -d "$SUPPORT/backup" ]; then
+  echo "   Ljus bakgrund och Docka…"
+  mkdir -p "$SUPPORT/backup"
+  defaults export com.apple.dock "$SUPPORT/backup/dock.plist"
+  osascript -e 'tell application "System Events" to get picture of current desktop' > "$SUPPORT/backup/bakgrund.txt" 2>/dev/null || true
+  cp bakgrund.jpg "$SUPPORT/bakgrund.jpg"
+  osascript -e "tell application \"System Events\" to tell every desktop to set picture to POSIX file \"$SUPPORT/bakgrund.jpg\"" || true
+  defaults write com.apple.dock autohide -bool false
+  defaults write com.apple.dock tilesize -int 54
+  defaults write com.apple.dock magnification -bool true
+  defaults write com.apple.dock largesize -int 70
+  defaults write com.apple.dock show-recents -bool false
+  killall Dock || true
+  defaults write com.apple.WindowManager EnableStandardClickToShowDesktop -bool false
+fi
+
 echo "4/4 Startar Panel…"
 open "$APP"
 echo ""

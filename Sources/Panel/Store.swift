@@ -44,9 +44,10 @@ final class Store: ObservableObject {
         let mailN = count(.mail), slackN = count(.slack), calN = count(.calendar), taskN = count(.tasks)
         let mailOn = isOn(.mail), slackOn = isOn(.slack), calOn = isOn(.calendar), taskOn = isOn(.tasks)
         let days = config.calendarDays, hide = config.hideCalendarWords, clientID = config.googleClientID
+        let rules = MailRules(important: config.importantMail, senders: config.importantSenders, unimportant: config.unimportantWords)
 
         // Alla fyra hämtas samtidigt.
-        async let m = Store.attempt(mailOn) { try await MailSource.fetch(count: mailN) }
+        async let m = Store.attempt(mailOn) { try await MailSource.fetch(count: mailN, rules: rules) }
         async let s = Store.attempt(slackOn) { try await SlackSource.fetch(count: slackN) }
         async let e = Store.attempt(calOn) { try await CalendarSource.fetch(days: days, count: calN, hideWords: hide) }
         async let t = Store.attempt(taskOn) { try await GoogleTasks.fetch(clientID: clientID, count: taskN) }
