@@ -41,7 +41,7 @@ struct SettingsView: View {
                     HStack(spacing: 10) {
                         Toggle("", isOn: $module.enabled).labelsHidden()
                         Image(systemName: module.kind.symbol).frame(width: 18)
-                        TextField("Namn", text: $module.title).frame(width: 150)
+                        TextField("Namn", text: $module.title, prompt: Text("Namn")).labelsHidden().frame(width: 150)
                         if module.kind != .links && module.kind != .note {
                             Stepper("Visa \(module.count)", value: $module.count, in: 1...15).frame(width: 120)
                         }
@@ -70,8 +70,8 @@ struct SettingsView: View {
             Section("Genvägar") {
                 ForEach($store.config.links) { $link in
                     HStack {
-                        TextField("Namn", text: $link.name).frame(width: 140)
-                        TextField("Webbadress eller app, t.ex. /Applications/Slack.app", text: $link.target)
+                        TextField("Namn", text: $link.name, prompt: Text("Namn")).labelsHidden().frame(width: 140)
+                        TextField("Adress", text: $link.target, prompt: Text("https://… eller /Applications/…")).labelsHidden()
                         Button { store.config.links.removeAll { $0.id == link.id } } label: { Image(systemName: "trash") }
                             .buttonStyle(.borderless)
                     }
