@@ -141,7 +141,14 @@ enum CalendarSource {
                 return !hidden.contains { t.contains($0) } && (e.isAllDay || e.endDate > Date())
             }
             .sorted { $0.startDate < $1.startDate }
-        return events.prefix(count).map {
+        // Samma händelse kan finnas i flera kalendrar (t.ex. två konton). Visa den bara en gång.
+        var seen = Set<String>()
+        let unique = events.filter { e in
+            let minute = Int(e.startDate.timeIntervalSince1970 / 60)
+            let key = (e.title ?? "").lowercased().trimmingCharacters(in: .whitespaces) + "|\(e.isAllDay ? minute / 1440 : minute)"
+            return seen.insert(key).inserted
+        }
+        return unique.prefix(count).map {
             EventItem(id: $0.eventIdentifier ?? UUID().uuidString, title: $0.title ?? "", start: $0.startDate, allDay: $0.isAllDay, location: $0.location ?? "")
         }
     }
