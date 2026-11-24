@@ -186,7 +186,7 @@ struct ModuleCard: View {
     /// Kontonamnet visas bara när mailen kommer från fler än ett konto.
     private var manyAccounts: Bool { Set(store.mail.map(\.account)).count > 1 }
 
-    private var needsLogin: Bool { module.kind == .tasks || module.kind == .slack || module.kind == .calendar }
+    private var needsLogin: Bool { [.mail, .tasks, .slack, .calendar].contains(module.kind) }
 
     @ViewBuilder private var content: some View {
         switch module.kind {

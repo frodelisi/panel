@@ -174,12 +174,16 @@ enum Keychain {
         if let v = values[key] { return v.isEmpty ? nil : v }
         // Flytta över från nyckelringen (en sista gång), sedan aldrig mer.
         if !values.keys.contains("moved." + key) {
-            values["moved." + key] = "1"
-            if let old = oldKeychainValue(key) {
-                values[key] = old
-                deleteOldKeychainValue(key)
+            // Bara "klar" om nyckeln flyttades eller inte fanns. Avbryts lösenordsrutan försöker vi igen nästa gång.
+            let (status, old) = oldKeychainValue(key)
+            if status == errSecSuccess || status == errSecItemNotFound {
+                values["moved." + key] = "1"
+                if let old {
+                    values[key] = old
+                    deleteOldKeychainValue(key)
+                }
+                store(values)
             }
-            store(values)
         }
         return values[key]
     }
@@ -191,7 +195,7 @@ enum Keychain {
         store(values)
     }
 
-    private static func oldKeychainValue(_ key: String) -> String? {
+    private static func oldKeychainValue(_ key: String) -> (OSStatus, String?) {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -200,8 +204,9 @@ enum Keychain {
             kSecMatchLimit as String: kSecMatchLimitOne,
         ]
         var out: AnyObject?
-        guard SecItemCopyMatching(query as CFDictionary, &out) == errSecSuccess, let data = out as? Data else { return nil }
-        return String(data: data, encoding: .utf8)
+        let status = SecItemCopyMatching(query as CFDictionary, &out)
+        guard status == errSecSuccess, let data = out as? Data else { return (status, nil) }
+        return (status, String(data: data, encoding: .utf8))
     }
 
     private static func deleteOldKeychainValue(_ key: String) {

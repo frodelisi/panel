@@ -55,7 +55,7 @@ final class Store: ObservableObject {
         // Allt hämtas samtidigt.
         // Gmail när Google-konton är inloggade, annars Mail-appen.
         async let m = Store.attempt(mailOn) { () async throws -> [MailItem] in
-            if googleAccounts.isEmpty { return try await MailSource.fetch(count: mailN, rules: rules) }
+            if googleAccounts.isEmpty { throw PanelError("Lägg till dina Gmail-konton i inställningarna") }
             return try await Gmail.important(accounts: googleAccounts, clientID: clientID, query: gmailQuery, count: mailN, rules: rules)
         }
         async let inv = Store.loadInvites(mailOn, googleAccounts, clientID)

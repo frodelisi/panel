@@ -14,7 +14,7 @@ struct SettingsView: View {
         Form {
             Section("Konton") {
                 AccountRow(symbol: "envelope", name: "Gmail",
-                           status: store.problems[.mail] ?? (Google.accounts.isEmpty ? "Inget Google-konto – läser Mail-appen" : Google.accounts.joined(separator: ", ")),
+                           status: store.problems[.mail] ?? (Google.accounts.isEmpty ? "Inget Gmail-konto inloggat" : Google.accounts.joined(separator: ", ")),
                            button: "Lägg till konto") {
                     store.signInGoogle()
                 }
