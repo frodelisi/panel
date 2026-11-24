@@ -12,6 +12,7 @@ struct MailItem: Identifiable, Hashable {
     var unread: Bool
     var flagged: Bool
     var date: Date?
+    var account: String = ""
 }
 
 /// Vad som räknas som viktigt. Allt går att ändra i inställningarna.
@@ -56,7 +57,11 @@ enum MailSource {
                     repeat with i from 1 to n
                         set m to message i of inbox
                         set d to (date received of m) as «class isot» as string
-                        set out to out & (message id of m) & tab & (sender of m) & tab & (subject of m) & tab & (read status of m) & tab & (flagged status of m) & tab & d & linefeed
+                        set acc to ""
+                        try
+                            set acc to name of account of mailbox of m
+                        end try
+                        set out to out & (message id of m) & tab & (sender of m) & tab & (subject of m) & tab & (read status of m) & tab & (flagged status of m) & tab & d & tab & acc & linefeed
                     end repeat
                     return out
                 end tell
@@ -74,7 +79,8 @@ enum MailSource {
                     let f = line.components(separatedBy: "\t")
                     guard f.count >= 6 else { return nil }
                     return MailItem(id: f[0], sender: cleanSender(f[1]), address: f[1], subject: f[2],
-                                    unread: f[3] == "false", flagged: f[4] == "true", date: parser.date(from: f[5]))
+                                    unread: f[3] == "false", flagged: f[4] == "true", date: parser.date(from: f[5]),
+                                    account: f.count > 6 ? f[6] : "")
                 }
                 cont.resume(returning: items)
             }

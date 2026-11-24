@@ -158,6 +158,9 @@ struct ModuleCard: View {
         .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(theme.card))
     }
 
+    /// Kontonamnet visas bara när mailen kommer från fler än ett konto.
+    private var manyAccounts: Bool { Set(store.mail.map(\.account)).count > 1 }
+
     private var needsLogin: Bool { module.kind == .tasks || module.kind == .slack || module.kind == .calendar }
 
     @ViewBuilder private var content: some View {
@@ -179,6 +182,11 @@ struct ModuleCard: View {
                         if m.unread { Circle().fill(theme.unread).frame(width: 6, height: 6) }
                         Text(m.sender).fontWeight(.semibold).foregroundColor(theme.text).lineLimit(1)
                         Spacer(minLength: 4)
+                        if manyAccounts && !m.account.isEmpty {
+                            Text(m.account).font(.system(size: 10, weight: .medium)).foregroundColor(theme.dim).lineLimit(1)
+                                .padding(.horizontal, 6).padding(.vertical, 1.5)
+                                .background(Capsule().fill(theme.field))
+                        }
                         Text(short(m.date)).font(.system(size: 11)).foregroundColor(theme.faint)
                     }
                     Text(m.subject).foregroundColor(theme.dim).lineLimit(1)
