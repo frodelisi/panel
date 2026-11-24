@@ -56,6 +56,7 @@ och panelen hämtar den själv inom en timme (eller direkt med "Sök efter ny ve
 **Reglagen** (knappen bredvid kugghjulet) öppnar inställningarna, där du kopplar konton och kan ändra själv:
 - slå på och av delar, byt namn, ändra ordning och hur många rader som visas
 - lägg till **Genvägar** (webbsidor eller appar) och **Anteckningar**
+- **Väder** (välj stad) och **Musik** (Spotify eller Musik-appen, med spela/pausa/nästa)
 - ljus eller mörk panel, hur många dagar framåt deadlines visas, och ord som döljer kalenderhändelser
 - **viktigaste mailen**: olästa, flaggade och avsändare du väljer kommer först; kvitton, nyhetsbrev och no-reply sorteras bort
 

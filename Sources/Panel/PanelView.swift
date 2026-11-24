@@ -16,7 +16,7 @@ struct Theme {
     var unread: Color { Color(red: 0.0, green: 0.48, blue: 1.0) }  // iOS blå
 }
 
-let cardWidth: CGFloat = 256
+let cardWidth: CGFloat = 248
 let cardHeight: CGFloat = 272
 
 /// Öppen eller stängd. Ändras med animation av PanelController.
@@ -51,11 +51,15 @@ struct PanelView: View {
         VStack(alignment: .leading, spacing: 14) {
             header
             HStack(alignment: .top, spacing: 12) {
-                ForEach(Array(store.enabledModules.enumerated()), id: \.element.id) { index, module in
-                    ModuleCard(module: module, store: store, theme: theme)
-                        .opacity(motion.open ? 1 : 0)
-                        .offset(y: motion.open ? 0 : -12)
-                        .animation(motion.open ? panelSpring.delay(0.06 + 0.045 * Double(index)) : .easeOut(duration: 0.12), value: motion.open)
+                ForEach(Array(columns.enumerated()), id: \.element.first!.id) { index, column in
+                    VStack(spacing: 12) {
+                        ForEach(column) { module in
+                            ModuleCard(module: module, store: store, theme: theme)
+                        }
+                    }
+                    .opacity(motion.open ? 1 : 0)
+                    .offset(y: motion.open ? 0 : -12)
+                    .animation(motion.open ? panelSpring.delay(0.06 + 0.045 * Double(index)) : .easeOut(duration: 0.12), value: motion.open)
                 }
                 if store.enabledModules.isEmpty {
                     Text("Inga delar är på. Tryck på reglageknappen för att välja vad panelen ska visa.")
@@ -97,6 +101,19 @@ struct PanelView: View {
         .padding(.horizontal, 6).frame(height: 26)
     }
 
+    /// Varje kolumn är ett stort kort, eller upp till två små kort ovanpå varandra.
+    private var columns: [[Module]] {
+        var result: [[Module]] = []
+        for m in store.enabledModules {
+            if m.kind.isSmall, let last = result.last, last.count == 1, last[0].kind.isSmall {
+                result[result.count - 1].append(m)
+            } else {
+                result.append([m])
+            }
+        }
+        return result
+    }
+
     /// Det viktigaste just nu: närmaste deadline i dag eller i morgon.
     private var nextUp: String? {
         guard let e = store.events.first else { return nil }
@@ -135,12 +152,7 @@ struct ModuleCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 7) {
-                Image(systemName: module.kind.symbol).font(.system(size: 12, weight: .semibold))
-                Text(module.title).font(.system(size: 13, weight: .semibold, design: .rounded))
-                Spacer()
-            }
-            .foregroundColor(theme.dim)
+            if !module.kind.isSmall { cardHeader }
 
             if let problem = store.problems[module.kind] {
                 Text(problem).foregroundColor(theme.faint).fixedSize(horizontal: false, vertical: true)
@@ -156,10 +168,19 @@ struct ModuleCard: View {
                 content
             }
         }
-        .padding(16)
-        .frame(width: cardWidth, height: cardHeight, alignment: .topLeading)
+        .padding(module.kind.isSmall ? 14 : 16)
+        .frame(width: cardWidth, height: module.kind.isSmall ? (cardHeight - 12) / 2 : cardHeight, alignment: .topLeading)
         .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(theme.card)
             .shadow(color: theme.cardShadow, radius: 10, y: 3))
+    }
+
+    private var cardHeader: some View {
+            HStack(spacing: 7) {
+                Image(systemName: module.kind.symbol).font(.system(size: 12, weight: .semibold))
+                Text(module.title).font(.system(size: 13, weight: .semibold, design: .rounded))
+                Spacer()
+            }
+            .foregroundColor(theme.dim)
     }
 
     /// Kontonamnet visas bara när mailen kommer från fler än ett konto.
@@ -175,6 +196,8 @@ struct ModuleCard: View {
         case .tasks: TasksCard(store: store, theme: theme)
         case .links: links
         case .note: note
+        case .weather: weather
+        case .music: music
         }
     }
 
@@ -254,6 +277,64 @@ struct ModuleCard: View {
             .foregroundColor(theme.text)
             .scrollContentBackground(.hidden)
             .background(Color.clear)
+    }
+
+    @ViewBuilder private var weather: some View {
+        if let w = store.weather {
+            HStack(alignment: .center, spacing: 12) {
+                Image(systemName: w.symbol).symbolRenderingMode(.multicolor).font(.system(size: 30))
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("\(w.temp)°").font(.system(size: 22, weight: .semibold, design: .rounded)).foregroundColor(theme.text)
+                    Text("\(w.text) · \(w.high)° / \(w.low)°").font(.system(size: 11.5)).foregroundColor(theme.dim).lineLimit(1)
+                }
+                Spacer(minLength: 0)
+            }
+            HStack(spacing: 0) {
+                ForEach(w.hours, id: \.self) { h in
+                    VStack(spacing: 2) {
+                        Text(h.hour).font(.system(size: 10.5, weight: .medium)).foregroundColor(theme.faint)
+                        Image(systemName: h.symbol).symbolRenderingMode(.multicolor).font(.system(size: 12))
+                        Text("\(h.temp)°").font(.system(size: 11, weight: .medium, design: .rounded)).foregroundColor(theme.text)
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+            }
+        } else {
+            Text("Hämtar väder…").foregroundColor(theme.faint)
+        }
+    }
+
+    @ViewBuilder private var music: some View {
+        if let m = store.music {
+            HStack(spacing: 11) {
+                AsyncImage(url: m.artwork) { image in
+                    image.resizable().aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    ZStack { theme.field; Image(systemName: "music.note").foregroundColor(theme.faint) }
+                }
+                .frame(width: 46, height: 46)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(m.title).fontWeight(.semibold).foregroundColor(theme.text).lineLimit(1)
+                    Text(m.artist).font(.system(size: 12)).foregroundColor(theme.dim).lineLimit(1)
+                }
+                Spacer(minLength: 0)
+            }
+            HStack(spacing: 26) {
+                Spacer()
+                MusicButton(symbol: "backward.fill", theme: theme) { store.musicCommand("previous track") }
+                MusicButton(symbol: m.playing ? "pause.fill" : "play.fill", theme: theme, big: true) { store.musicCommand("playpause") }
+                MusicButton(symbol: "forward.fill", theme: theme) { store.musicCommand("next track") }
+                Spacer()
+            }
+        } else {
+            Text("Ingen musik spelas").foregroundColor(theme.faint)
+            Button { MusicSource.openSpotify() } label: {
+                Text("Öppna Spotify").fontWeight(.medium).foregroundColor(theme.text)
+                    .padding(.horizontal, 14).padding(.vertical, 6)
+                    .background(Capsule().fill(theme.field))
+            }.buttonStyle(.plain)
+        }
     }
 
     @ViewBuilder private func empty(_ isEmpty: Bool, _ text: String) -> some View {
@@ -370,4 +451,25 @@ func relativeDay(_ date: Date) -> String {
     if cal.isDateInTomorrow(date) { return "I morgon" }
     if cal.isDateInYesterday(date) { return "I går" }
     return date.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated))
+}
+
+struct MusicButton: View {
+    var symbol: String
+    var theme: Theme
+    var big = false
+    var action: () -> Void
+    @State private var hover = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: big ? 18 : 13, weight: .semibold))
+                .foregroundColor(theme.text)
+                .frame(width: big ? 34 : 26, height: big ? 34 : 26)
+                .background(Circle().fill(hover ? theme.hover : Color.clear))
+                .scaleEffect(hover ? 1.06 : 1)
+        }
+        .buttonStyle(.plain)
+        .onHover { h in withAnimation(.easeOut(duration: 0.12)) { hover = h } }
+    }
 }

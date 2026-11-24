@@ -3,7 +3,7 @@ import Security
 
 /// Vilka sorters delar panelen kan visa.
 enum ModuleKind: String, Codable, CaseIterable, Identifiable {
-    case mail, slack, calendar, tasks, links, note
+    case mail, slack, calendar, tasks, links, note, weather, music
     var id: String { rawValue }
 
     var defaultTitle: String {
@@ -14,8 +14,13 @@ enum ModuleKind: String, Codable, CaseIterable, Identifiable {
         case .tasks: return "Att göra"
         case .links: return "Genvägar"
         case .note: return "Anteckningar"
+        case .weather: return "Väder"
+        case .music: return "Musik"
         }
     }
+
+    /// Halvhöga kort; två i rad läggs ovanpå varandra i samma kolumn.
+    var isSmall: Bool { self == .weather || self == .music }
 
     var symbol: String {
         switch self {
@@ -25,6 +30,8 @@ enum ModuleKind: String, Codable, CaseIterable, Identifiable {
         case .tasks: return "checkmark.circle"
         case .links: return "square.grid.2x2"
         case .note: return "note.text"
+        case .weather: return "cloud.sun"
+        case .music: return "music.note"
         }
     }
 }
@@ -53,6 +60,8 @@ struct Config: Codable {
         Module(kind: .tasks, title: "Att göra", count: 6),
         Module(kind: .links, title: "Genvägar", enabled: false),
         Module(kind: .note, title: "Anteckningar", enabled: false),
+        Module(kind: .weather, title: "Väder"),
+        Module(kind: .music, title: "Musik"),
     ]
     var links: [LinkItem] = [
         LinkItem(name: "Gmail", target: "https://mail.google.com"),
@@ -63,7 +72,8 @@ struct Config: Codable {
     var note = ""
     var dark = false                     // ljus panel som standard
     var slackUnreadOnly = true            // visa bara olästa Slack-meddelanden
-    var themeVersion = 3                 // äldre inställningar (mörk standard) byts till ljust en gång
+    var weatherCity = "Stockholm"
+    var themeVersion = 4                 // äldre inställningar (mörk standard) byts till ljust en gång
     var calendarDays = 14
     var hideCalendarWords = ""           // kommaseparerade ord: händelser som innehåller dem visas inte
     var googleClientID = ""
@@ -87,8 +97,13 @@ struct Config: Codable {
         if config.themeVersion < 3 && !config.unimportantWords.lowercased().contains("facebook") {
             config.unimportantWords += ", facebook, instagram, linkedin, tiktok"
         }
-        if config.themeVersion < 3 {
-            config.themeVersion = 3
+        if config.themeVersion < 4 {
+            for kind in [ModuleKind.weather, .music] where !config.modules.contains(where: { $0.kind == kind }) {
+                config.modules.append(Module(kind: kind, title: kind.defaultTitle))
+            }
+        }
+        if config.themeVersion < 4 {
+            config.themeVersion = 4
             config.save()
         }
         return config
@@ -118,6 +133,7 @@ struct Config: Codable {
         chatURL = (try? c.decode(String.self, forKey: .chatURL)) ?? d.chatURL
         themeVersion = (try? c.decode(Int.self, forKey: .themeVersion)) ?? 0
         slackUnreadOnly = (try? c.decode(Bool.self, forKey: .slackUnreadOnly)) ?? d.slackUnreadOnly
+        weatherCity = (try? c.decode(String.self, forKey: .weatherCity)) ?? d.weatherCity
         importantMail = (try? c.decode(Bool.self, forKey: .importantMail)) ?? d.importantMail
         importantSenders = (try? c.decode(String.self, forKey: .importantSenders)) ?? d.importantSenders
         unimportantWords = (try? c.decode(String.self, forKey: .unimportantWords)) ?? d.unimportantWords

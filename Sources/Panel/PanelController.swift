@@ -16,6 +16,7 @@ final class PanelController {
     private let hosting: NSHostingView<PanelView>
     private let motion: Motion
     private var timer: Timer?
+    private var musicTimer: Timer?
     private var hoverSince: Date?
     private var outsideSince: Date?
     private var clickMonitor: Any?
@@ -40,6 +41,13 @@ final class PanelController {
         store.layoutChanged = { [weak self] in self?.resize() }
         timer = Timer.scheduledTimer(withTimeInterval: 0.08, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.tick() }
+        }
+        // Medan panelen är öppen: håll musiken aktuell.
+        musicTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                guard let self, self.isShown else { return }
+                await self.store.refreshMusic()
+            }
         }
         // Klick utanför panelen stänger den (även om du skriver i den).
         clickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
@@ -97,6 +105,7 @@ final class PanelController {
         isShown = true
         hoverSince = nil
         if Date().timeIntervalSince(store.lastRefresh) > 30 { Task { await store.refresh() } }
+        else { Task { await store.refreshMusic() } }
         panel.setFrame(targetFrame(on: screen), display: true)
         panel.ignoresMouseEvents = false
         panel.orderFrontRegardless()

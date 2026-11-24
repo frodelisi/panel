@@ -42,7 +42,7 @@ struct SettingsView: View {
                         Toggle("", isOn: $module.enabled).labelsHidden()
                         Image(systemName: module.kind.symbol).frame(width: 18)
                         TextField("Namn", text: $module.title, prompt: Text("Namn")).labelsHidden().frame(width: 150)
-                        if module.kind != .links && module.kind != .note {
+                        if module.kind != .links && module.kind != .note && !module.kind.isSmall {
                             Stepper("Visa \(module.count)", value: $module.count, in: 1...15).frame(width: 120)
                         }
                         Spacer()
@@ -62,6 +62,7 @@ struct SettingsView: View {
 
             Section("Utseende") {
                 Toggle("Mörk panel", isOn: $store.config.dark)
+                TextField("Väder för (stad)", text: $store.config.weatherCity)
                 Stepper("Deadlines: visa \(store.config.calendarDays) dagar framåt", value: $store.config.calendarDays, in: 1...60)
                 TextField("Dölj kalenderhändelser som innehåller (t.ex. lunch, pengar)", text: $store.config.hideCalendarWords)
                 TextField("Kugghjulet öppnar (länk till chatten med Claude)", text: $store.config.chatURL)

@@ -9,6 +9,8 @@ final class Store: ObservableObject {
     @Published var slack: [SlackItem] = []
     @Published var events: [EventItem] = []
     @Published var tasks: [TaskItem] = []
+    @Published var weather: WeatherNow?
+    @Published var music: MusicNow?
     @Published var problems: [ModuleKind: String] = [:]
     @Published var googleStatus = ""
     @Published var lastRefresh = Date.distantPast
@@ -57,6 +59,27 @@ final class Store: ObservableObject {
         apply(.slack, await s) { self.slack = $0 }
         apply(.calendar, await e) { self.events = $0 }
         apply(.tasks, await t) { self.tasks = $0 }
+        if isOn(.weather) {
+            do { weather = try await WeatherSource.fetch(city: config.weatherCity); problems[.weather] = nil }
+            catch { problems[.weather] = error.localizedDescription }
+        }
+        await refreshMusic()
+    }
+
+    /// Musiken hämtas ofta (varannan sekund) medan panelen är öppen.
+    func refreshMusic() async {
+        guard isOn(.music) else { return }
+        music = await MusicSource.fetch()
+    }
+
+    func musicCommand(_ command: String) {
+        guard let app = music?.app else { return }
+        if command == "playpause" { music?.playing.toggle() }   // knappen byts direkt
+        Task {
+            await MusicSource.command(command, app: app)
+            try? await Task.sleep(nanoseconds: 350_000_000)
+            await refreshMusic()
+        }
     }
 
     nonisolated static func attempt<T>(_ on: Bool, _ fetch: () async throws -> T) async -> Result<T, Error>? {
