@@ -149,7 +149,7 @@ enum CalendarSource {
             return seen.insert(key).inserted
         }
         return unique.prefix(count).map {
-            EventItem(id: $0.eventIdentifier ?? UUID().uuidString, title: $0.title ?? "", start: $0.startDate, allDay: $0.isAllDay, location: $0.location ?? "")
+            EventItem(id: ($0.eventIdentifier ?? UUID().uuidString) + "@\($0.startDate.timeIntervalSince1970)", title: $0.title ?? "", start: $0.startDate, allDay: $0.isAllDay, location: $0.location ?? "")
         }
     }
 
