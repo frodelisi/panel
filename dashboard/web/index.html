@@ -273,9 +273,40 @@ V.skola = () => {
     <div class="card dark c5"><div class="k">Nedräkning</div>
       ${nextDeadlines().slice(0, 3).map(d => `<div class="row" style="border-color:rgba(255,255,255,.08)"><div class="num sm" style="width:64px">${Math.max(0, daysTo(d.datum))}</div><div class="grow"><div style="font-weight:600">${esc(d.titel)}</div><div class="t3">dagar kvar · ${esc(d.typ)}</div></div></div>`).join('') || '<div class="s">Inget planerat</div>'}
     </div>
-    <div class="card c12"><div class="k">Schema</div>${connect('Schemat från Skola24', 'Då syns veckans lektioner med tid och sal här och i panelen.')}</div>
+    <div class="card c12"><div class="k">${icon('skola')}Veckans schema<span class="tag">${schemaStatus()}</span></div>${schemaWeek()}</div>
   </div>`;
 };
+
+// Veckoschemat från Skola24 (läses av Mac minin). Den här veckan, eller nästa på helgen.
+function schemaStatus() {
+  const st = D.skola.schemaStatus;
+  if (!st) return 'ej kopplat';
+  if (!st.ok) return 'fel';
+  return 'Skola24 · ' + new Date(st.tid).toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' });
+}
+function isoWeek(d) { const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())); const day = t.getUTCDay() || 7;
+  t.setUTCDate(t.getUTCDate() + 4 - day); const y = new Date(Date.UTC(t.getUTCFullYear(), 0, 1)); return Math.ceil(((t - y) / 86400000 + 1) / 7); }
+function schemaWeek() {
+  const st = D.skola.schemaStatus, all = D.skola.schema || [];
+  if (!all.length) return st && !st.ok ? `<div class="empty"><b>Kunde inte läsa schemat.</b> <span class="t3">${esc(st.fel || '')}</span></div>`
+    : connect('Schemat från Skola24', 'Kör installera-skola24.command på Mac minin och logga in en gång.');
+  const now = new Date(), wd = now.getDay() || 7;
+  const week = isoWeek(wd >= 6 ? new Date(now.getTime() + 3 * 86400000) : now);
+  const lessons = all.filter(l => l.vecka === week);
+  const days = ['Mån', 'Tis', 'Ons', 'Tors', 'Fre'];
+  const nowStr = now.toTimeString().slice(0, 5);
+  return `${st && !st.ok ? `<div class="t3" style="color:var(--red);margin-bottom:8px">${esc(st.fel)}</div>` : ''}
+    ${st && st.kalender ? `<div class="t3" style="margin-bottom:8px">${esc(st.kalender)}</div>` : ''}
+    <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px">${days.map((d, i) => {
+      const today = wd === i + 1 && week === isoWeek(now);
+      const ls = lessons.filter(l => l.dag === i + 1);
+      return `<div><div style="font-weight:700;margin-bottom:8px;color:${today ? 'var(--blue)' : 'var(--ink2)'}">${d}${today ? ' · i dag' : ''}</div>
+        ${ls.map(l => { const nu = today && l.start <= nowStr && nowStr < l.slut, klar = today && l.slut <= nowStr;
+          return `<div style="padding:8px 10px;border-radius:12px;margin-bottom:6px;background:${nu ? 'rgba(10,111,232,.12)' : 'var(--fill)'};opacity:${klar ? .45 : 1}">
+            <div class="t3" style="font-variant-numeric:tabular-nums">${esc(l.start)}–${esc(l.slut)}</div>
+            <div class="ell" style="font-weight:650">${esc(l.amne)}</div><div class="t3 ell">${esc([l.sal, l.larare].filter(Boolean).join(' · '))}</div></div>`; }).join('') || '<div class="t3">Inga lektioner</div>'}</div>`;
+    }).join('')}</div>`;
+}
 
 V.inkorg = () => `<div class="grid">
   <div class="card c12"><div class="k">${icon('inkorg')}Viktigt från Gmail och Slack</div>

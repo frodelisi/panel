@@ -86,6 +86,15 @@ Du når den från MacBooken och mobilen i webbläsaren, och rubriken på ett kor
 Det du fyller i (lön, budget, sparmål, fonder, prenumerationer, timmar, deadlines, mål) sparas bara på
 Mac minin, i `~/Library/Application Support/Panel/dashboard/`, aldrig i det här repot.
 
+**Skolschemat från Skola24** (kräver inloggning, så Mac minin loggar in åt dig):
+```
+~/Panel/dashboard/skola24/installera-skola24.command
+```
+Ett webbläsarfönster öppnas: logga in (kryssa i "Håll mig inloggad"), öppna ditt schema och stäng fönstret.
+Sedan läser Mac minin schemat kl. 06, 09, 12, 15 och 18, visar det i dashboarden (Skola) och lägger in
+lektionerna i Google-kalendern (kräver att Panel på Mac minin är inloggad med Google). Går inloggningen
+ut får du en notis; kör då `~/Panel/dashboard/skola24/logga-in-skola24.command`.
+
 **Utanför hemmet:** installera Tailscale (gratis) på Mac minin, MacBooken och mobilen, så når du
 dashboarden överallt utan att öppna något mot internet.
 
