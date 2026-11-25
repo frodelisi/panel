@@ -113,14 +113,16 @@ def login():
         ctx = p.chromium.launch_persistent_context(str(PROFILE), headless=False, viewport={"width": 1280, "height": 860})
         page = ctx.pages[0] if ctx.pages else ctx.new_page()
 
-        def on_request(req):
-            if "render/timetable" in req.url and req.method == "POST":
+        def on_response(res):
+            if "render/timetable" in res.url and res.request.method == "POST":
                 try:
-                    seen["url"] = req.frame.page.url      # fliken där schemat visades (kan vara en ny flik)
+                    if (res.json().get("data") or {}).get("lessonInfo"):
+                        seen["url"] = res.frame.page.url   # fliken där DITT schema visades (kan vara en ny flik)
+                        print("Schemat hittat! Vänta några sekunder och stäng sedan fönstret.")
                 except Exception:
                     pass
 
-        ctx.on("request", on_request)
+        ctx.on("response", on_response)
         page.goto(load_state().get("url") or START_URL)
         print("Logga in (kryssa i \"Håll mig inloggad\" om det finns) och öppna ditt schema.")
         print("Stäng sedan webbläsarfönstret.")
@@ -290,8 +292,10 @@ def fetch():
         def on_response(res):
             if "render/timetable" in res.url and res.request.method == "POST" and "body" not in captured:
                 try:
-                    captured["body"] = res.json()
-                    captured["request"] = res.request
+                    body = res.json()
+                    if (body.get("data") or {}).get("lessonInfo"):
+                        captured["body"] = body
+                        captured["request"] = res.request
                 except Exception:
                     pass
 
