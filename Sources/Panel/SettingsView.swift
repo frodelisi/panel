@@ -7,6 +7,7 @@ struct SettingsView: View {
     @State private var clientSecret = Keychain.get("google.secret") ?? ""
     @State private var slackToken = Keychain.get("slack") ?? ""
     @State private var slackSaved = ""
+    @State private var dashboardPassword = Keychain.get("dashboard.password") ?? ""
 
     init(store: Store) { self.store = store }
 
@@ -66,6 +67,9 @@ struct SettingsView: View {
                 Toggle("Mörk panel", isOn: $store.config.dark)
                 TextField("Väder för (stad)", text: $store.config.weatherCity)
                 TextField("Dashboard (adress till Mac minin, t.ex. http://mac-mini.local:8765)", text: $store.config.dashboardURL)
+                SecureField("Dashboardens lösenord (för Ekonomi-kortet)", text: $dashboardPassword)
+                    .onChange(of: dashboardPassword) { Keychain.set($0, for: "dashboard.password") }
+                Toggle("Vädret som liten text i Live-raden", isOn: $store.config.weatherInHeader)
                 Stepper("Deadlines: visa \(store.config.calendarDays) dagar framåt", value: $store.config.calendarDays, in: 1...60)
                 TextField("Dölj kalenderhändelser som innehåller (t.ex. lunch, pengar)", text: $store.config.hideCalendarWords)
                 TextField("Kugghjulet öppnar (länk till chatten med Claude)", text: $store.config.chatURL)

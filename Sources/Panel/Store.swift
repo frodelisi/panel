@@ -11,6 +11,8 @@ final class Store: ObservableObject {
     @Published var tasks: [TaskItem] = []
     @Published var weather: WeatherNow?
     @Published var invites: [Invite] = []
+    @Published var economy: EconomyNow?
+    @Published var doneToday = Store.loadDoneToday()
     @Published var music: MusicNow?
     @Published var problems: [ModuleKind: String] = [:]
     @Published var googleStatus = ""
@@ -26,8 +28,32 @@ final class Store: ObservableObject {
 
     var enabledModules: [Module] { config.modules.filter(\.enabled) }
 
-    private func count(_ kind: ModuleKind) -> Int { config.modules.first { $0.kind == kind }?.count ?? 5 }
-    private func isOn(_ kind: ModuleKind) -> Bool { config.modules.contains { $0.kind == kind && $0.enabled } }
+    private func count(_ kind: ModuleKind) -> Int {
+        let inbox = config.modules.first { $0.kind == .inbox && $0.enabled }?.count
+        if let inbox, kind == .mail || kind == .slack { return max(inbox, config.modules.first { $0.kind == kind }?.count ?? 0) }
+        return config.modules.first { $0.kind == kind }?.count ?? 5
+    }
+    private func isOn(_ kind: ModuleKind) -> Bool {
+        if config.modules.contains(where: { $0.kind == kind && $0.enabled }) { return true }
+        // "Viktigt" behöver både mail och Slack; vädret kan visas i Live-raden.
+        if (kind == .mail || kind == .slack) && config.modules.contains(where: { $0.kind == .inbox && $0.enabled }) { return true }
+        if kind == .weather && config.weatherInHeader { return true }
+        return false
+    }
+
+    /// Antal att göra-punkter som bockats av i dag (nollställs vid midnatt).
+    nonisolated static func loadDoneToday() -> Int {
+        let d = UserDefaults.standard
+        return d.string(forKey: "doneDay") == Store.dayKey() ? d.integer(forKey: "doneCount") : 0
+    }
+    nonisolated static func dayKey() -> String {
+        let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; return f.string(from: Date())
+    }
+    private func bumpDone() {
+        doneToday = Store.loadDoneToday() + 1
+        UserDefaults.standard.set(Store.dayKey(), forKey: "doneDay")
+        UserDefaults.standard.set(doneToday, forKey: "doneCount")
+    }
 
     private func scheduleSave() {
         saveTask?.cancel()
@@ -71,6 +97,10 @@ final class Store: ObservableObject {
         if isOn(.weather) {
             do { weather = try await WeatherSource.fetch(city: config.weatherCity); problems[.weather] = nil }
             catch { problems[.weather] = error.localizedDescription }
+        }
+        if config.modules.contains(where: { $0.kind == .economy && $0.enabled }) {
+            do { economy = try await EconomySource.fetch(base: config.dashboardURL); problems[.economy] = nil }
+            catch { problems[.economy] = error.localizedDescription }
         }
         await refreshMusic()
     }
@@ -120,6 +150,7 @@ final class Store: ObservableObject {
 
     func complete(_ task: TaskItem) {
         tasks.removeAll { $0.id == task.id }      // försvinner direkt, Google uppdateras i bakgrunden
+        bumpDone()
         Task {
             do { try await GoogleTasks.complete(task, account: taskAccount, clientID: config.googleClientID) }
             catch { problems[.tasks] = error.localizedDescription; await refresh() }

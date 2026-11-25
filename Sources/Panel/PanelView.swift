@@ -22,6 +22,7 @@ let cardHeight: CGFloat = 272
 /// Öppen eller stängd. Ändras med animation av PanelController.
 final class Motion: ObservableObject {
     @Published var open = false
+    @Published var hovered: Int?          // kortet som är utfällt
 }
 
 /// macOS egna genomskinliga bakgrund (som Kontrollcenter).
@@ -41,88 +42,6 @@ struct Blur: NSViewRepresentable {
 
 /// Fjädern som används överallt, så att allt rör sig likadant.
 let panelSpring = Animation.spring(response: 0.46, dampingFraction: 0.84)
-
-struct PanelView: View {
-    @ObservedObject var store: Store
-    @ObservedObject var motion: Motion
-    var theme: Theme { Theme(dark: store.config.dark) }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            header
-            HStack(alignment: .top, spacing: 12) {
-                ForEach(Array(columns.enumerated()), id: \.element.first!.id) { index, column in
-                    VStack(spacing: 12) {
-                        ForEach(column) { module in
-                            ModuleCard(module: module, store: store, theme: theme)
-                        }
-                    }
-                    .opacity(motion.open ? 1 : 0)
-                    .offset(y: motion.open ? 0 : -12)
-                    .animation(motion.open ? panelSpring.delay(0.06 + 0.045 * Double(index)) : .easeOut(duration: 0.12), value: motion.open)
-                }
-                if store.enabledModules.isEmpty {
-                    Text("Inga delar är på. Tryck på reglageknappen för att välja vad panelen ska visa.")
-                        .foregroundColor(theme.dim).frame(width: cardWidth * 2, height: 80)
-                }
-            }
-        }
-        .padding(16)
-        .background(ZStack { Blur(dark: store.config.dark); theme.tint })
-        .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 32, style: .continuous).strokeBorder(theme.edge, lineWidth: 0.75))
-        .shadow(color: Color(red: 0.3, green: 0.2, blue: 0.1).opacity(store.config.dark ? 0.45 : 0.16), radius: 30, y: 18)
-        .font(.system(size: 13))
-        .scaleEffect(motion.open ? 1 : 0.9, anchor: .top)
-        .opacity(motion.open ? 1 : 0)
-        .blur(radius: motion.open ? 0 : 8)
-        .padding(.horizontal, 44).padding(.bottom, 56).padding(.top, 6)   // plats för skuggan
-        .fixedSize()
-        .environment(\.colorScheme, store.config.dark ? .dark : .light)
-    }
-
-    private var header: some View {
-        HStack(spacing: 10) {
-            if let next = nextUp {
-                Circle().fill(theme.accent).frame(width: 6, height: 6)
-                Text(next).foregroundColor(theme.text).fontWeight(.medium).lineLimit(1)
-            } else if Updater.updatedRecently && !Updater.version.isEmpty {
-                Image(systemName: "sparkles").foregroundColor(theme.faint)
-                Text("Ny version: \(Updater.version)").foregroundColor(theme.faint).lineLimit(1)
-            }
-            Spacer(minLength: 40)
-            Text(Date.now.formatted(.dateTime.weekday(.wide).day().month(.wide).hour().minute()))
-                .font(.system(size: 13, weight: .medium, design: .rounded))
-                .foregroundColor(theme.dim)
-            HeaderButton(symbol: "arrow.clockwise", help: "Hämta nytt", theme: theme) { Task { await store.refresh() } }
-            HeaderButton(symbol: "slider.horizontal.3", help: "Inställningar och konton", theme: theme) { store.openSettings() }
-            HeaderButton(symbol: "gearshape", help: "Ändra panelen med Claude", theme: theme) { LinkOpener.open(store.config.chatURL) }
-        }
-        .padding(.horizontal, 6).frame(height: 26)
-    }
-
-    /// Varje kolumn är ett stort kort, eller upp till två små kort ovanpå varandra.
-    private var columns: [[Module]] {
-        var result: [[Module]] = []
-        for m in store.enabledModules {
-            if m.kind.isSmall, let last = result.last, last.count == 1, last[0].kind.isSmall {
-                result[result.count - 1].append(m)
-            } else {
-                result.append([m])
-            }
-        }
-        return result
-    }
-
-    /// Det viktigaste just nu: närmaste deadline i dag eller i morgon.
-    private var nextUp: String? {
-        guard let e = store.events.first else { return nil }
-        let cal = Calendar.current
-        if cal.isDateInToday(e.start) { return "I dag: \(e.title)" }
-        if cal.isDateInTomorrow(e.start) { return "I morgon: \(e.title)" }
-        return nil
-    }
-}
 
 struct HeaderButton: View {
     var symbol: String
@@ -149,10 +68,13 @@ struct ModuleCard: View {
     var module: Module
     @ObservedObject var store: Store
     var theme: Theme
+    var width: CGFloat = cardWidth
+    var height: CGFloat = cardHeight
+    var plain = false        // utan egen bakgrund (LiveCard ritar den)
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            if !module.kind.isSmall { cardHeader }
+            if !module.kind.isSmall || plain { cardHeader }
 
             if let problem = store.problems[module.kind] {
                 Text(problem).foregroundColor(theme.faint).fixedSize(horizontal: false, vertical: true)
@@ -168,10 +90,10 @@ struct ModuleCard: View {
                 content
             }
         }
-        .padding(module.kind.isSmall ? 14 : 16)
-        .frame(width: cardWidth, height: module.kind.isSmall ? (cardHeight - 12) / 2 : cardHeight, alignment: .topLeading)
-        .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(theme.card)
-            .shadow(color: theme.cardShadow, radius: 10, y: 3))
+        .padding(plain ? 20 : 16)
+        .frame(width: width, height: height, alignment: .topLeading)
+        .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(plain ? Color.clear : theme.card)
+            .shadow(color: plain ? .clear : theme.cardShadow, radius: 10, y: 3))
     }
 
     private var cardHeader: some View {
@@ -197,7 +119,7 @@ struct ModuleCard: View {
     /// Kontonamnet visas bara när mailen kommer från fler än ett konto.
     private var manyAccounts: Bool { Set(store.mail.map(\.account)).count > 1 }
 
-    private var needsLogin: Bool { [.mail, .tasks, .slack, .calendar].contains(module.kind) }
+    private var needsLogin: Bool { [.mail, .tasks, .slack, .calendar, .inbox, .economy].contains(module.kind) }
 
     @ViewBuilder private var content: some View {
         switch module.kind {
@@ -209,6 +131,8 @@ struct ModuleCard: View {
         case .note: note
         case .weather: weather
         case .music: music
+        case .inbox: inbox
+        case .economy: economy
         }
     }
 
@@ -292,6 +216,71 @@ struct ModuleCard: View {
             .foregroundColor(theme.text)
             .scrollContentBackground(.hidden)
             .background(Color.clear)
+    }
+
+    /// Viktigt: inbjudningar, viktiga mail och olästa Slack i en lista.
+    private var inbox: some View {
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(store.invites) { InviteRow(invite: $0, theme: theme, store: store) }
+                ForEach(store.mail) { m in
+                    Row(theme: theme) { store.open(m) } content: {
+                        HStack(spacing: 6) {
+                            if m.unread { Circle().fill(theme.unread).frame(width: 6, height: 6) }
+                            Text(m.sender).fontWeight(.semibold).foregroundColor(theme.text).lineLimit(1)
+                            Spacer(minLength: 4)
+                            Text(m.account.isEmpty ? "mail" : m.account).font(.system(size: 10, weight: .medium)).foregroundColor(theme.faint)
+                        }
+                        Text(m.subject).foregroundColor(theme.dim).lineLimit(1)
+                    }
+                }
+                ForEach(store.slack) { m in
+                    Row(theme: theme) { store.open(m) } content: {
+                        HStack {
+                            Text("\(m.who) · \(m.place)").fontWeight(.semibold).foregroundColor(theme.text).lineLimit(1)
+                            Spacer(minLength: 4)
+                            Text("slack").font(.system(size: 10, weight: .medium)).foregroundColor(theme.faint)
+                        }
+                        Text(m.text).foregroundColor(theme.dim).lineLimit(1)
+                    }
+                }
+                if store.invites.isEmpty && store.mail.isEmpty && store.slack.isEmpty {
+                    Text("Inget viktigt just nu 🎉").foregroundColor(theme.faint)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder private var economy: some View {
+        if let e = store.economy {
+            Text(e.pott == nil ? "–" : kronor(e.pott)).font(.system(size: 34, weight: .heavy, design: .rounded)).foregroundColor(theme.text)
+            Text(e.pott == nil ? "Fyll i lönen i dashboarden" : "till potten i \(e.month)").font(.system(size: 12.5)).foregroundColor(theme.dim)
+            VStack(alignment: .leading, spacing: 10) {
+                ForEach(e.goals.prefix(3), id: \.self) { g in
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text(g.name).fontWeight(.semibold).foregroundColor(theme.text)
+                            Spacer()
+                            Text("\(kronor(g.saved)) / \(kronor(g.target))").font(.system(size: 11)).foregroundColor(theme.faint)
+                        }
+                        GeometryReader { geo in
+                            ZStack(alignment: .leading) {
+                                Capsule().fill(theme.field)
+                                Capsule().fill(Color(red: 0.43, green: 0.25, blue: 0.88))
+                                    .frame(width: geo.size.width * CGFloat(min(1, g.target.map { $0 > 0 ? g.saved / $0 : 0 } ?? 0)))
+                            }
+                        }
+                        .frame(height: 6)
+                    }
+                }
+            }
+            .padding(.top, 6)
+            if e.subscriptions > 0 {
+                Text("Prenumerationer \(kronor(e.subscriptions))/mån").font(.system(size: 11.5)).foregroundColor(theme.faint)
+            }
+        } else {
+            Text("Ekonomin hämtas från dashboarden på Mac minin.").foregroundColor(theme.faint)
+        }
     }
 
     @ViewBuilder private var weather: some View {

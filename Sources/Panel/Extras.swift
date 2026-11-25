@@ -181,3 +181,47 @@ enum MusicSource {
         }
     }
 }
+
+// MARK: - Ekonomi (från dashboarden på Mac minin)
+
+struct EconomyNow: Hashable {
+    struct Goal: Hashable { var name: String; var saved: Double; var target: Double? }
+    var pott: Double?           // lön + CSN − fasta poster, när lönen är ifylld
+    var month: String
+    var goals: [Goal]
+    var subscriptions: Double
+}
+
+enum EconomySource {
+    static func fetch(base: String) async throws -> EconomyNow {
+        let b = base.trimmingCharacters(in: .whitespaces)
+        guard !b.isEmpty else { throw PanelError("Skriv in dashboardens adress i inställningarna") }
+        guard let password = Keychain.get("dashboard.password") else { throw PanelError("Skriv in dashboardens lösenord i inställningarna") }
+        guard let url = URL(string: (b.hasPrefix("http") ? b : "http://" + b) + "/api/all") else { throw PanelError("Fel adress till dashboarden") }
+        var request = URLRequest(url: url, timeoutInterval: 8)
+        request.setValue("Basic " + Data("panel:\(password)".utf8).base64EncodedString(), forHTTPHeaderField: "Authorization")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        if (response as? HTTPURLResponse)?.statusCode == 401 { throw PanelError("Fel lösenord till dashboarden") }
+        let all = (try JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
+        let e = all["ekonomi"] as? [String: Any] ?? [:]
+        let manad = e["manad"] as? [String: Any] ?? [:]
+        let fixed = ((e["regel"] as? [String: Any])?["fordelning"] as? [[String: Any]] ?? []).reduce(0.0) { $0 + (($1["belopp"] as? NSNumber)?.doubleValue ?? 0) }
+        let lon = (manad["lon"] as? NSNumber)?.doubleValue
+        let csn = (manad["csn"] as? NSNumber)?.doubleValue ?? 0
+        let goals = (e["sparmal"] as? [[String: Any]] ?? []).map {
+            EconomyNow.Goal(name: $0["namn"] as? String ?? "", saved: ($0["sparat"] as? NSNumber)?.doubleValue ?? 0, target: ($0["mal"] as? NSNumber)?.doubleValue)
+        }
+        let subs = (e["prenumerationer"] as? [[String: Any]] ?? []).reduce(0.0) { $0 + (($1["pris"] as? NSNumber)?.doubleValue ?? 0) }
+        return EconomyNow(pott: lon.map { $0 + csn - fixed }, month: Date().formatted(.dateTime.month(.wide)), goals: goals, subscriptions: subs)
+    }
+}
+
+/// "6 150 kr"
+func kronor(_ v: Double?) -> String {
+    guard let v else { return "–" }
+    let f = NumberFormatter()
+    f.numberStyle = .decimal
+    f.locale = Locale(identifier: "sv_SE")
+    f.maximumFractionDigits = 0
+    return (f.string(from: NSNumber(value: v)) ?? "\(Int(v))") + " kr"
+}

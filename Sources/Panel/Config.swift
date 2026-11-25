@@ -3,7 +3,7 @@ import Security
 
 /// Vilka sorters delar panelen kan visa.
 enum ModuleKind: String, Codable, CaseIterable, Identifiable {
-    case mail, slack, calendar, tasks, links, note, weather, music
+    case mail, slack, calendar, tasks, links, note, weather, music, inbox, economy
     var id: String { rawValue }
 
     var defaultTitle: String {
@@ -16,6 +16,8 @@ enum ModuleKind: String, Codable, CaseIterable, Identifiable {
         case .note: return "Anteckningar"
         case .weather: return "Väder"
         case .music: return "Musik"
+        case .inbox: return "Viktigt"
+        case .economy: return "Ekonomi"
         }
     }
 
@@ -25,7 +27,8 @@ enum ModuleKind: String, Codable, CaseIterable, Identifiable {
     /// Sidan i dashboarden som kortet leder till.
     var dashboardPage: String? {
         switch self {
-        case .mail, .slack: return "inkorg"
+        case .mail, .slack, .inbox: return "inkorg"
+        case .economy: return "ekonomi"
         case .calendar, .tasks: return "skola"
         case .weather: return "oversikt"
         default: return nil
@@ -42,6 +45,8 @@ enum ModuleKind: String, Codable, CaseIterable, Identifiable {
         case .note: return "note.text"
         case .weather: return "cloud.sun"
         case .music: return "music.note"
+        case .inbox: return "tray.full"
+        case .economy: return "chart.line.uptrend.xyaxis"
         }
     }
 }
@@ -64,14 +69,16 @@ struct LinkItem: Codable, Identifiable, Hashable {
 
 struct Config: Codable {
     var modules: [Module] = [
-        Module(kind: .mail, title: "Mail", count: 4),
-        Module(kind: .slack, title: "Slack", count: 4),
-        Module(kind: .calendar, title: "Deadlines", count: 4),
+        Module(kind: .calendar, title: "Nästa", count: 4),
+        Module(kind: .inbox, title: "Viktigt", count: 5),
+        Module(kind: .music, title: "Musik"),
         Module(kind: .tasks, title: "Att göra", count: 6),
+        Module(kind: .economy, title: "Ekonomi"),
+        Module(kind: .mail, title: "Mail", enabled: false, count: 4),
+        Module(kind: .slack, title: "Slack", enabled: false, count: 4),
+        Module(kind: .weather, title: "Väder", enabled: false),
         Module(kind: .links, title: "Genvägar", enabled: false),
         Module(kind: .note, title: "Anteckningar", enabled: false),
-        Module(kind: .weather, title: "Väder"),
-        Module(kind: .music, title: "Musik"),
     ]
     var links: [LinkItem] = [
         LinkItem(name: "Gmail", target: "https://mail.google.com"),
@@ -83,10 +90,11 @@ struct Config: Codable {
     var dark = false                     // ljus panel som standard
     var slackUnreadOnly = true            // visa bara olästa Slack-meddelanden
     var weatherCity = "Stockholm"
+    var weatherInHeader = true            // vädret som liten text i Live-raden
     var dashboardURL = ""                // t.ex. http://mac-mini.local:8765 – korten öppnar rätt sida där
     var gmailQuery = "in:inbox is:important category:primary newer_than:14d"   // vilka mail som räknas som viktiga
     var tasksAccount = ""                 // vilket Google-konto att göra-listan ligger i (tomt = första)
-    var themeVersion = 4                 // äldre inställningar (mörk standard) byts till ljust en gång
+    var themeVersion = 5                 // äldre inställningar (mörk standard) byts till ljust en gång
     var calendarDays = 14
     var hideCalendarWords = ""           // kommaseparerade ord: händelser som innehåller dem visas inte
     var googleClientID = ""
@@ -115,8 +123,22 @@ struct Config: Codable {
                 config.modules.append(Module(kind: kind, title: kind.defaultTitle))
             }
         }
-        if config.themeVersion < 4 {
-            config.themeVersion = 4
+        if config.themeVersion < 5 {
+            // Ny design: en smal rad. Nästa · Viktigt · Musik · Att göra · Ekonomi; resten finns kvar men avslaget.
+            let order: [(ModuleKind, String)] = [(.calendar, "Nästa"), (.inbox, "Viktigt"), (.music, "Musik"), (.tasks, "Att göra"), (.economy, "Ekonomi")]
+            var modules = order.map { (kind: ModuleKind, title: String) -> Module in
+                var m = config.modules.first { $0.kind == kind } ?? Module(kind: kind, title: title)
+                m.title = title; m.enabled = true
+                return m
+            }
+            for m in config.modules where !modules.contains(where: { $0.kind == m.kind }) {
+                var off = m; off.enabled = false; modules.append(off)
+            }
+            config.modules = modules
+            config.weatherInHeader = true
+        }
+        if config.themeVersion < 5 {
+            config.themeVersion = 5
             config.save()
         }
         return config
@@ -148,6 +170,7 @@ struct Config: Codable {
         slackUnreadOnly = (try? c.decode(Bool.self, forKey: .slackUnreadOnly)) ?? d.slackUnreadOnly
         weatherCity = (try? c.decode(String.self, forKey: .weatherCity)) ?? d.weatherCity
         dashboardURL = (try? c.decode(String.self, forKey: .dashboardURL)) ?? d.dashboardURL
+        weatherInHeader = (try? c.decode(Bool.self, forKey: .weatherInHeader)) ?? d.weatherInHeader
         gmailQuery = (try? c.decode(String.self, forKey: .gmailQuery)) ?? d.gmailQuery
         tasksAccount = (try? c.decode(String.self, forKey: .tasksAccount)) ?? d.tasksAccount
         importantMail = (try? c.decode(Bool.self, forKey: .importantMail)) ?? d.importantMail
