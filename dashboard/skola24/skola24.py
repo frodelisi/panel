@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Läser ditt schema i Skola24 med en webbläsare som Mac minin har loggat in i.
 
+  python3 skola24.py daemon  – håller ett Skola24-fönster öppet (minimera det) och läser schemat därifrån.
+                              Skola24 kommer bara ihåg inloggningen medan fönstret är öppet, så det får stå kvar.
   python3 skola24.py login   – öppnar ett fönster: logga in och gå till ditt schema, stäng sedan fönstret
-  python3 skola24.py fetch   – läser schemat (den här och nästa vecka) utan att visa något fönster
+  python3 skola24.py fetch   – läser schemat en gång utan fönster (fungerar bara om inloggningen finns kvar)
 
 Schemat sparas i dashboardens skola.json (fältet "schema") och läggs in i din Google-kalender
 (samma Google-inloggning som panelen på den här datorn), så att det syns överallt.
@@ -360,7 +362,105 @@ def fetch():
     return True
 
 
+def process(ctx, body, request):
+    """Gör om ett svar från Skola24 till schema, hämtar nästa vecka också, och sparar/lägger i kalendern."""
+    (DATA / "skola24-raw.json").write_text(json.dumps(body, ensure_ascii=False)[:500_000], encoding="utf-8")
+    week = None
+    try:
+        week = json.loads(request.post_data or "{}").get("week")
+    except ValueError:
+        pass
+    this_week = week or dt.date.today().isocalendar()[1]
+    schema = lessons_from(body, this_week)
+    try:
+        req_body = json.loads(request.post_data or "{}")
+        if "week" in req_body:
+            nxt = copy.deepcopy(req_body)
+            nxt["week"] = (dt.date.today() + dt.timedelta(days=7)).isocalendar()[1]
+            if nxt["week"] != this_week:
+                headers = {k: v for k, v in request.headers.items() if k.lower() not in ("content-length", "cookie", "host")}
+                res = ctx.request.post(request.url, data=json.dumps(nxt), headers=headers)
+                if res.ok:
+                    schema += lessons_from(res.json(), nxt["week"])
+    except Exception:
+        pass
+    # Bara skriva till Google-kalendern när schemat har ändrats.
+    try:
+        before = json.loads(SKOLA.read_text(encoding="utf-8")).get("schema")
+    except (OSError, ValueError):
+        before = None
+    kalender = None
+    if schema != before:
+        try:
+            kalender = sync_google(schema)
+        except Exception as e:
+            kalender = f"Google-kalendern: {e}"
+    status = {"ok": True, "tid": dt.datetime.now().isoformat(timespec="minutes"), "lektioner": len(schema)}
+    if kalender:
+        status["kalender"] = kalender
+    save_skola(schema=schema, status=status)
+    print(f"{dt.datetime.now():%H:%M} Läste {len(schema)} lektioner." + (f" {kalender}" if kalender else ""), flush=True)
+
+
+def daemon():
+    """Ett fönster som står öppet hela tiden. Laddar om schemat var 15:e minut (håller inloggningen vid liv)
+    och sparar det när det har läst lektioner."""
+    import time
+    PROFILE.mkdir(parents=True, exist_ok=True)
+    latest = {}
+    with sync_playwright() as p:
+        ctx = p.chromium.launch_persistent_context(str(PROFILE), headless=False, viewport={"width": 1100, "height": 760})
+        restore_cookies(ctx)
+        page = ctx.pages[0] if ctx.pages else ctx.new_page()
+
+        def on_response(res):
+            if "render/timetable" in res.url and res.request.method == "POST":
+                try:
+                    body = res.json()
+                    if (body.get("data") or {}).get("lessonInfo"):
+                        latest["body"], latest["request"] = body, res.request
+                        STATE.write_text(json.dumps({"url": res.frame.page.url}), encoding="utf-8")
+                except Exception:
+                    pass
+
+        ctx.on("response", on_response)
+        page.goto(load_state().get("url") or START_URL)
+        last_saved = 0.0
+        last_notice = 0.0
+        while True:
+            # Vänta 15 minuter (eller tills fönstret stängs), och spara direkt om du själv visar schemat.
+            for _ in range(15 * 60):
+                if not ctx.pages:
+                    return                       # fönstret stängdes: launchd startar det igen
+                if latest.get("body") and time.time() - last_saved > 60:
+                    try:
+                        process(ctx, latest["body"], latest["request"])
+                        last_saved = time.time()
+                    except Exception as e:
+                        print("Fel:", e, flush=True)
+                    latest.clear()
+                try:
+                    ctx.pages[0].wait_for_timeout(1000)
+                except Exception:
+                    return
+            try:
+                latest.clear()
+                ctx.pages[0].reload(wait_until="networkidle", timeout=60000)
+                ctx.pages[0].wait_for_timeout(5000)
+                save_cookies(ctx)
+            except Exception:
+                pass
+            if not latest.get("body") and time.time() - last_notice > 3600:
+                save_skola(status={"ok": False, "fel": "Logga in i Skola24-fönstret på Mac minin igen.",
+                                   "tid": dt.datetime.now().isoformat(timespec="minutes")})
+                notify("Logga in i Skola24-fönstret på Mac minin")
+                last_notice = time.time()
+
+
 if __name__ == "__main__":
+    if len(sys.argv) > 1 and sys.argv[1] == "daemon":
+        daemon()
+        sys.exit(0)
     mode = sys.argv[1] if len(sys.argv) > 1 else "fetch"
     ok = login() if mode == "login" else fetch()
     sys.exit(0 if ok else 1)
