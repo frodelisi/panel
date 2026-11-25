@@ -297,7 +297,7 @@ struct ModuleCard: View {
     @ViewBuilder private var weather: some View {
         if let w = store.weather {
             HStack(alignment: .center, spacing: 12) {
-                Image(systemName: w.symbol).symbolRenderingMode(.multicolor).font(.system(size: 30))
+                WeatherIcon(symbol: w.symbol, size: 30, theme: theme)
                 VStack(alignment: .leading, spacing: 1) {
                     Text("\(w.temp)°").font(.system(size: 22, weight: .semibold, design: .rounded)).foregroundColor(theme.text)
                     Text("\(w.text) · \(w.high)° / \(w.low)°").font(.system(size: 11.5)).foregroundColor(theme.dim).lineLimit(1)
@@ -308,7 +308,7 @@ struct ModuleCard: View {
                 ForEach(w.hours, id: \.self) { h in
                     VStack(spacing: 2) {
                         Text(h.hour).font(.system(size: 10.5, weight: .medium)).foregroundColor(theme.faint)
-                        Image(systemName: h.symbol).symbolRenderingMode(.multicolor).font(.system(size: 12))
+                        WeatherIcon(symbol: h.symbol, size: 12, theme: theme)
                         Text("\(h.temp)°").font(.system(size: 11, weight: .medium, design: .rounded)).foregroundColor(theme.text)
                     }
                     .frame(maxWidth: .infinity)
@@ -533,5 +533,25 @@ struct InviteRow: View {
                 .background(Capsule().fill(theme.card))
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// Väderikon som syns på ljus bakgrund: sol och måne i färg, moln grå (de är annars vita).
+struct WeatherIcon: View {
+    var symbol: String
+    var size: CGFloat
+    var theme: Theme
+
+    var body: some View {
+        let sunny = symbol.contains("sun")
+        let moon = symbol.contains("moon")
+        let wet = symbol.contains("rain") || symbol.contains("drizzle") || symbol.contains("bolt") || symbol.contains("snow")
+        Image(systemName: symbol)
+            .symbolRenderingMode(.palette)
+            .foregroundStyle(
+                theme.dark ? Color.white.opacity(0.85) : Color(white: 0.55),
+                sunny ? Color(red: 1, green: 0.72, blue: 0.1) : moon ? Color(red: 0.55, green: 0.6, blue: 0.9)
+                    : wet ? Color(red: 0.2, green: 0.55, blue: 1) : (theme.dark ? Color.white.opacity(0.6) : Color(white: 0.7)))
+            .font(.system(size: size))
     }
 }
