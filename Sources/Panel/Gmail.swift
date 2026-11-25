@@ -63,6 +63,51 @@ enum Gmail {
         return domain.split(separator: ".").first.map(String.init) ?? domain
     }
 
+    // MARK: Kalender
+
+    /// Händelser från alla inloggade Google-konton (huvudkalendern), de närmaste dagarna.
+    static func events(accounts: [String], clientID: String, days: Int, count: Int, hideWords: String) async throws -> [EventItem] {
+        let iso = ISO8601DateFormatter()
+        let start = Calendar.current.startOfDay(for: Date())
+        let end = Calendar.current.date(byAdding: .day, value: max(1, days), to: start) ?? start
+        let hidden = hideWords.lowercased().split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        var all: [EventItem] = []
+        var firstError: Error?
+        for account in accounts {
+            var c = URLComponents(string: "https://www.googleapis.com/calendar/v3/calendars/primary/events")!
+            c.queryItems = [
+                URLQueryItem(name: "timeMin", value: iso.string(from: start)), URLQueryItem(name: "timeMax", value: iso.string(from: end)),
+                URLQueryItem(name: "singleEvents", value: "true"), URLQueryItem(name: "orderBy", value: "startTime"),
+                URLQueryItem(name: "maxResults", value: "100"),
+            ]
+            do {
+                let json = try await Google.request("GET", c.url!.absoluteString, account: account, clientID: clientID)
+                for e in json["items"] as? [[String: Any]] ?? [] {
+                    guard e["status"] as? String != "cancelled", let id = e["id"] as? String else { continue }
+                    // Avböjda inbjudningar visas inte.
+                    let me = (e["attendees"] as? [[String: Any]])?.first { $0["self"] as? Bool == true }
+                    if me?["responseStatus"] as? String == "declined" { continue }
+                    let title = e["summary"] as? String ?? "(utan namn)"
+                    if hidden.contains(where: { title.lowercased().contains($0) }) { continue }
+                    let s = e["start"] as? [String: Any] ?? [:]
+                    guard let when = parseStart(s) else { continue }
+                    let endDate = parseStart(e["end"] as? [String: Any] ?? [:])
+                    if s["date"] == nil, let endDate, endDate < Date() { continue }        // redan över
+                    all.append(EventItem(id: account + "/" + id + "@\(when.timeIntervalSince1970)", title: title, start: when,
+                                         allDay: s["date"] != nil, location: e["location"] as? String ?? "",
+                                         link: (e["htmlLink"] as? String).flatMap(URL.init(string:)), end: endDate))
+                }
+            } catch { firstError = firstError ?? error }
+        }
+        if all.isEmpty, let firstError { throw firstError }
+        // Samma händelse i två konton (t.ex. en inbjudan) visas en gång.
+        var seen = Set<String>()
+        let unique = all.sorted { $0.start < $1.start }.filter { e in
+            seen.insert(e.title.lowercased() + "|\(Int(e.start.timeIntervalSince1970 / 60))").inserted
+        }
+        return Array(unique.prefix(max(1, count)))
+    }
+
     // MARK: Inbjudningar
 
     static func invites(accounts: [String], clientID: String) async -> [Invite] {

@@ -123,6 +123,8 @@ struct EventItem: Identifiable, Hashable {
     var start: Date
     var allDay: Bool
     var location: String
+    var link: URL? = nil      // Google Kalender: öppnas i webbläsaren
+    var end: Date? = nil
 }
 
 enum CalendarSource {
@@ -161,6 +163,7 @@ enum CalendarSource {
     }
 
     static func open(_ item: EventItem) {
+        if let link = item.link { NSWorkspace.shared.open(link); return }
         NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/Calendar.app"))
     }
 }

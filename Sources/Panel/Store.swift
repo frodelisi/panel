@@ -86,7 +86,11 @@ final class Store: ObservableObject {
         }
         async let inv = Store.loadInvites(mailOn, googleAccounts, clientID)
         async let s = Store.attempt(slackOn) { try await SlackSource.fetch(count: slackN, unreadOnly: slackUnread) }
-        async let e = Store.attempt(calOn) { try await CalendarSource.fetch(days: days, count: calN, hideWords: hide) }
+        // Google Kalender när Google-konton är inloggade, annars Kalender-appen på Macen.
+        async let e = Store.attempt(calOn) { () async throws -> [EventItem] in
+            if googleAccounts.isEmpty { return try await CalendarSource.fetch(days: days, count: calN, hideWords: hide) }
+            return try await Gmail.events(accounts: googleAccounts, clientID: clientID, days: days, count: calN, hideWords: hide)
+        }
         async let t = Store.attempt(taskOn) { try await GoogleTasks.fetch(account: tasksAccount, clientID: clientID, count: taskN) }
 
         apply(.mail, await m) { self.mail = $0 }
