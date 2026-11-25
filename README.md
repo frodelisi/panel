@@ -70,6 +70,25 @@ Alla val sparas i `~/Library/Application Support/Panel/config.json`. Nycklar och
 frågar om lösenord efter varje uppdatering).
 
 
+## Dashboard på Mac minin
+
+En egen dashboard (Översikt, Ekonomi, Skola, Inkorg, Vectif, Mål) som Mac minin kör dygnet runt.
+Du når den från MacBooken och mobilen i webbläsaren, och rubriken på ett kort i panelen öppnar rätt sida.
+
+1. På Mac minin: installera Panel (raden under Installera), sedan i Terminal:
+   ```
+   ~/Panel/dashboard/installera-dashboard.command
+   ```
+   Välj ett lösenord. Adressen skrivs ut, t.ex. `http://mac-mini.local:8765`.
+2. Låt inte Mac minin somna: Systeminställningar → Energi → Förhindra automatisk vila.
+3. På MacBooken: Panels inställningar → Utseende → **Dashboard** → skriv in adressen.
+
+Det du fyller i (lön, budget, sparmål, fonder, prenumerationer, timmar, deadlines, mål) sparas bara på
+Mac minin, i `~/Library/Application Support/Panel/dashboard/`, aldrig i det här repot.
+
+**Utanför hemmet:** installera Tailscale (gratis) på Mac minin, MacBooken och mobilen, så når du
+dashboarden överallt utan att öppna något mot internet.
+
 ## Ta bort
 
 Kör `~/Panel/avinstallera.command`. Bakgrunden och Docken blir som de var innan.

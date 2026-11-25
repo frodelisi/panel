@@ -175,12 +175,23 @@ struct ModuleCard: View {
     }
 
     private var cardHeader: some View {
-            HStack(spacing: 7) {
-                Image(systemName: module.kind.symbol).font(.system(size: 12, weight: .semibold))
-                Text(module.title).font(.system(size: 13, weight: .semibold, design: .rounded))
-                Spacer()
-            }
-            .foregroundColor(theme.dim)
+        HStack(spacing: 7) {
+            Image(systemName: module.kind.symbol).font(.system(size: 12, weight: .semibold))
+            Text(module.title).font(.system(size: 13, weight: .semibold, design: .rounded))
+            if dashboardLink != nil { Image(systemName: "arrow.up.right").font(.system(size: 9, weight: .bold)).opacity(0.6) }
+            Spacer()
+        }
+        .foregroundColor(theme.dim)
+        .contentShape(Rectangle())
+        .onTapGesture { if let url = dashboardLink { NSWorkspace.shared.open(url) } }
+        .help(dashboardLink == nil ? "" : "Öppna i dashboarden")
+    }
+
+    /// Klick på kortets rubrik öppnar dashboarden på rätt sida (om en adress är inställd).
+    private var dashboardLink: URL? {
+        let base = store.config.dashboardURL.trimmingCharacters(in: .whitespaces)
+        guard !base.isEmpty, let page = module.kind.dashboardPage else { return nil }
+        return URL(string: (base.hasPrefix("http") ? base : "http://" + base) + "/#" + page)
     }
 
     /// Kontonamnet visas bara när mailen kommer från fler än ett konto.

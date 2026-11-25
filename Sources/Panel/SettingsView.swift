@@ -65,6 +65,7 @@ struct SettingsView: View {
             Section("Utseende") {
                 Toggle("Mörk panel", isOn: $store.config.dark)
                 TextField("Väder för (stad)", text: $store.config.weatherCity)
+                TextField("Dashboard (adress till Mac minin, t.ex. http://mac-mini.local:8765)", text: $store.config.dashboardURL)
                 Stepper("Deadlines: visa \(store.config.calendarDays) dagar framåt", value: $store.config.calendarDays, in: 1...60)
                 TextField("Dölj kalenderhändelser som innehåller (t.ex. lunch, pengar)", text: $store.config.hideCalendarWords)
                 TextField("Kugghjulet öppnar (länk till chatten med Claude)", text: $store.config.chatURL)

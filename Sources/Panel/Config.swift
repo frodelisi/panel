@@ -22,6 +22,16 @@ enum ModuleKind: String, Codable, CaseIterable, Identifiable {
     /// Halvhöga kort; två i rad läggs ovanpå varandra i samma kolumn.
     var isSmall: Bool { self == .weather || self == .music }
 
+    /// Sidan i dashboarden som kortet leder till.
+    var dashboardPage: String? {
+        switch self {
+        case .mail, .slack: return "inkorg"
+        case .calendar, .tasks: return "skola"
+        case .weather: return "oversikt"
+        default: return nil
+        }
+    }
+
     var symbol: String {
         switch self {
         case .mail: return "envelope"
@@ -73,6 +83,7 @@ struct Config: Codable {
     var dark = false                     // ljus panel som standard
     var slackUnreadOnly = true            // visa bara olästa Slack-meddelanden
     var weatherCity = "Stockholm"
+    var dashboardURL = ""                // t.ex. http://mac-mini.local:8765 – korten öppnar rätt sida där
     var gmailQuery = "in:inbox is:important category:primary newer_than:14d"   // vilka mail som räknas som viktiga
     var tasksAccount = ""                 // vilket Google-konto att göra-listan ligger i (tomt = första)
     var themeVersion = 4                 // äldre inställningar (mörk standard) byts till ljust en gång
@@ -136,6 +147,7 @@ struct Config: Codable {
         themeVersion = (try? c.decode(Int.self, forKey: .themeVersion)) ?? 0
         slackUnreadOnly = (try? c.decode(Bool.self, forKey: .slackUnreadOnly)) ?? d.slackUnreadOnly
         weatherCity = (try? c.decode(String.self, forKey: .weatherCity)) ?? d.weatherCity
+        dashboardURL = (try? c.decode(String.self, forKey: .dashboardURL)) ?? d.dashboardURL
         gmailQuery = (try? c.decode(String.self, forKey: .gmailQuery)) ?? d.gmailQuery
         tasksAccount = (try? c.decode(String.self, forKey: .tasksAccount)) ?? d.tasksAccount
         importantMail = (try? c.decode(Bool.self, forKey: .importantMail)) ?? d.importantMail

@@ -1,0 +1,17 @@
+{
+  "regel": {
+    "text": "Lön + CSN − fasta poster flyttas till potten direkt.",
+    "fordelning": [
+      {"namn": "Sparkonto", "belopp": 0},
+      {"namn": "Mat", "belopp": 0},
+      {"namn": "Nöje", "belopp": 0},
+      {"namn": "Kläder", "belopp": 0},
+      {"namn": "Övrigt", "belopp": 0}
+    ]
+  },
+  "manad": {"lon": null, "csn": null, "anvant": {"Mat": 0, "Nöje": 0, "Kläder": 0, "Övrigt": 0}},
+  "sparmal": [],
+  "prenumerationer": [],
+  "fonder": [],
+  "timmar": {"timlon": null, "pass": []}
+}

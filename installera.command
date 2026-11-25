@@ -85,6 +85,11 @@ if [ $TYST = 0 ] && [ ! -d "$SUPPORT/backup" ]; then
   defaults write com.apple.WindowManager EnableStandardClickToShowDesktop -bool false
 fi
 
+# Körs dashboarden på den här datorn (Mac minin)? Starta om den så att nya versionen gäller.
+if [ -f "$HOME/Library/LaunchAgents/se.panel.dashboard.plist" ]; then
+  launchctl kickstart -k gui/$UID/se.panel.dashboard 2>/dev/null || true
+fi
+
 echo "4/4 Startar Panel…"
 open "$APP"
 echo ""

@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard</title>
+<style>
+  :root {
+    --bg: #ece6df; --ink: #16161a; --ink2: rgba(40,40,52,.7); --ink3: rgba(40,40,52,.5);
+    --card: rgba(255,255,255,.88); --fill: rgba(120,120,135,.1); --line: rgba(40,40,52,.09);
+    --blue: #0a6fe8; --green: #16873d; --red: #d4302a; --orange: #c86f00; --purple: #6d3fe0; --teal: #0b8796;
+    --dark1: #2b2723; --dark2: #15130f; --amber: #ffb648;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; min-height: 100vh; color: var(--ink); -webkit-font-smoothing: antialiased;
+         font: 15px/1.4 -apple-system, "SF Pro Text", "Inter", system-ui, sans-serif;
+         background: radial-gradient(55% 60% at 10% 0%, #fbf8f3 0%, transparent 60%),
+                     radial-gradient(45% 55% at 100% 100%, #d9cdbf 0%, transparent 70%), var(--bg) fixed; }
+  button, input, select { font: inherit; color: inherit; }
+  .app { display: flex; flex-wrap: wrap; gap: 24px; max-width: 1360px; margin: 0 auto; padding: 24px 20px 60px; }
+  nav { flex: 1 1 200px; max-width: 220px; display: flex; flex-direction: column; gap: 4px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 20px; letter-spacing: -.02em; padding: 4px 10px 18px; }
+  .ldot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 0 4px rgba(34,197,94,.18); }
+  nav a { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; color: var(--ink2); text-decoration: none; font-weight: 600; }
+  nav a:hover { background: rgba(255,255,255,.5); color: var(--ink); }
+  nav a.on { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(60,40,20,.1); }
+  .k svg { width: 15px; height: 15px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .card.dark .field label { color: rgba(246,243,238,.7); }
+  .card.dark input { background: rgba(255,255,255,.1); color: #fff; border-color: rgba(255,255,255,.16); }
+  .card.dark input::placeholder { color: rgba(246,243,238,.45); }
+  nav svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  main { flex: 999 1 640px; min-width: 0; }
+  header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px; margin: 4px 0 20px; }
+  h1 { margin: 0; font-size: 34px; font-weight: 800; letter-spacing: -.035em; }
+  .when { color: var(--ink3); font-weight: 500; }
+  .grid { display: grid; gap: 16px; grid-template-columns: repeat(12, minmax(0, 1fr)); }
+  .c3 { grid-column: span 3; } .c4 { grid-column: span 4; } .c5 { grid-column: span 5; } .c6 { grid-column: span 6; } .c7 { grid-column: span 7; } .c8 { grid-column: span 8; } .c12 { grid-column: span 12; }
+  @media (max-width: 1100px) { .c3 { grid-column: span 6; } .c4, .c5, .c7, .c8 { grid-column: span 12; } .c6 { grid-column: span 12; } }
+  @media (max-width: 760px) { nav { max-width: none; flex-direction: row; overflow-x: auto; } .brand { display: none; } .c3 { grid-column: span 12; } h1 { font-size: 28px; } }
+  .card { background: var(--card); border: .5px solid #fff; border-radius: 24px; padding: 20px; box-shadow: 0 1px 2px rgba(60,40,20,.05), 0 10px 24px -14px rgba(60,40,20,.2); min-width: 0; }
+  .card.dark { background: linear-gradient(160deg, var(--dark1), var(--dark2)); color: #f6f3ee; border-color: rgba(255,255,255,.08); }
+  .card.dark .k, .card.dark .s, .card.dark .t3 { color: rgba(246,243,238,.65); }
+  .k { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 700; color: var(--ink3); margin-bottom: 10px; }
+  .k .tag { margin-left: auto; }
+  .num { font-size: 40px; font-weight: 800; letter-spacing: -.045em; line-height: 1.05; font-variant-numeric: tabular-nums; }
+  .num.sm { font-size: 28px; }
+  .s { color: var(--ink2); font-size: 14px; }
+  .t3 { color: var(--ink3); font-size: 12.5px; }
+  .tag { font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 20px; background: var(--fill); color: var(--ink2); white-space: nowrap; }
+  .up { color: var(--green); } .down { color: var(--red); }
+  .row { display: flex; align-items: center; gap: 12px; padding: 10px 0; }
+  .row + .row { border-top: .5px solid var(--line); }
+  .grow { flex: 1; min-width: 0; }
+  .ell { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bar { height: 8px; border-radius: 4px; background: var(--fill); overflow: hidden; }
+  .bar i { display: block; height: 100%; border-radius: 4px; transition: width .5s cubic-bezier(.2,.8,.2,1); }
+  .hb { display: grid; grid-template-columns: 100px 1fr 180px; align-items: center; gap: 12px; padding: 7px 0; }
+  .hb .v { text-align: right; font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field label { font-size: 12.5px; font-weight: 600; color: var(--ink2); }
+  input[type=number], input[type=text], input[type=date] { width: 100%; padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(40,40,52,.14); background: rgba(255,255,255,.9); }
+  input:focus { outline: 2px solid var(--blue); outline-offset: 1px; }
+  .in { width: 110px !important; text-align: right; padding: 7px 10px !important; }
+  .btn { border: 0; border-radius: 20px; padding: 9px 16px; font-weight: 650; background: var(--ink); color: #fff; cursor: pointer; }
+  .btn.ghost { background: var(--fill); color: var(--ink); }
+  .btn:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+  .link { background: none; border: 0; padding: 0; color: var(--blue); font-weight: 650; cursor: pointer; }
+  .x { background: none; border: 0; color: var(--ink3); cursor: pointer; padding: 6px; border-radius: 8px; }
+  .x:hover { background: var(--fill); color: var(--red); }
+  .empty { border: 1.5px dashed rgba(40,40,52,.18); border-radius: 18px; padding: 18px; color: var(--ink2); }
+  .empty b { color: var(--ink); }
+  .pill { display: inline-block; font-size: 11.5px; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
+  .p-prov { background: rgba(200,111,0,.13); color: var(--orange); }
+  .p-inl { background: rgba(10,111,232,.1); color: var(--blue); }
+  .p-tal { background: rgba(109,63,224,.1); color: var(--purple); }
+  .p-lax { background: rgba(22,135,61,.1); color: var(--green); }
+  .ring { position: relative; flex: none; }
+  .ring b { position: absolute; inset: 0; display: grid; place-items: center; font-size: 20px; font-weight: 800; }
+  .flex { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  .saved { position: fixed; right: 20px; bottom: 20px; background: var(--ink); color: #fff; padding: 9px 16px; border-radius: 20px; font-weight: 600; opacity: 0; transition: opacity .25s; }
+  .saved.show { opacity: .92; }
+  .page { animation: in .35s cubic-bezier(.2,.8,.2,1); }
+  @keyframes in { from { opacity: 0; transform: translateY(8px); } }
+</style>
+</head>
+<body>
+<div class="app">
+  <nav id="nav" aria-label="Sidor"></nav>
+  <main id="main"><p class="s">Laddar…</p></main>
+</div>
+<div class="saved" id="saved">Sparat</div>
+
+<script>
+// ---------- Data ----------
+let D = {};
+const kr = n => (n == null || isNaN(n)) ? '–' : Math.round(n).toLocaleString('sv-SE') + ' kr';
+const num = v => { const n = parseFloat(String(v).replace(/\s/g, '').replace(',', '.')); return isNaN(n) ? null : n; };
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const today = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; };
+const daysTo = iso => Math.round((new Date(iso + 'T00:00:00') - today()) / 86400000);
+const monthsTo = iso => Math.max(1, (new Date(iso).getFullYear() - new Date().getFullYear()) * 12 + new Date(iso).getMonth() - new Date().getMonth());
+const dayText = iso => { const n = daysTo(iso); if (n === 0) return 'i dag'; if (n === 1) return 'i morgon'; if (n < 0) return 'passerad';
+  return new Date(iso + 'T00:00:00').toLocaleDateString('sv-SE', { weekday: 'short', day: 'numeric', month: 'short' }); };
+
+async function load() {
+  const r = await fetch('/api/all');
+  D = await r.json();
+  render();
+}
+let timers = {};
+function save(name) {
+  clearTimeout(timers[name]);
+  timers[name] = setTimeout(async () => {
+    await fetch('/api/save/' + name, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(D[name]) });
+    const el = document.getElementById('saved'); el.classList.add('show'); setTimeout(() => el.classList.remove('show'), 1100);
+  }, 350);
+}
+// Sätter ett värde via en sökväg som "ekonomi.manad.lon" och sparar den filen.
+function setPath(path, value) {
+  const parts = path.split('.'); let o = D;
+  for (let i = 0; i < parts.length - 1; i++) o = o[parts[i]];
+  o[parts[parts.length - 1]] = value;
+  save(parts[0]);
+}
+
+// ---------- Ikoner ----------
+const I = {
+  oversikt: '<path d="M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z"/>',
+  ekonomi: '<path d="M3 17l6-6 4 4 8-8M15 7h6v6"/>',
+  skola: '<path d="M4 19V6a2 2 0 0 1 2-2h12v15H6a2 2 0 0 0 0 4h12"/>',
+  inkorg: '<rect x="3" y="5" width="18" height="14" rx="3"/><path d="m3 8 9 6 9-6"/>',
+  vectif: '<polygon points="6 4 20 12 6 20 6 4"/>',
+  mal: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
+};
+const PAGES = [['oversikt', 'Översikt'], ['ekonomi', 'Ekonomi'], ['skola', 'Skola'], ['inkorg', 'Inkorg'], ['vectif', 'Vectif'], ['mal', 'Mål']];
+const icon = n => `<svg viewBox="0 0 24 24" aria-hidden="true">${I[n]}</svg>`;
+
+function ring(pct, size = 92, color = 'var(--amber)', track = 'rgba(255,255,255,.12)', label = '') {
+  const r = size / 2 - 8, c = 2 * Math.PI * r, p = Math.max(0, Math.min(1, pct || 0));
+  return `<div class="ring" style="width:${size}px;height:${size}px"><svg width="${size}" height="${size}" aria-hidden="true">
+    <circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="${track}" stroke-width="8"/>
+    <circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="${color}" stroke-width="8" stroke-linecap="round"
+      stroke-dasharray="${(c * p).toFixed(1)} ${c.toFixed(1)}" transform="rotate(-90 ${size / 2} ${size / 2})"/></svg><b>${label || Math.round(p * 100) + '%'}</b></div>`;
+}
+const connect = (what, how) => `<div class="empty"><b>${what}</b> kopplas in senare. <span class="t3">${how}</span></div>`;
+
+// ---------- Beräkningar ----------
+function budget() {
+  const e = D.ekonomi, fast = e.regel.fordelning.reduce((a, f) => a + (f.belopp || 0), 0);
+  const inkomst = (e.manad.lon || 0) + (e.manad.csn || 0);
+  return { fast, inkomst, pott: e.manad.lon == null ? null : inkomst - fast };
+}
+function goalPace(g) {
+  if (!g.mal) return null;
+  const kvar = Math.max(0, g.mal - (g.sparat || 0));
+  return { kvar, perManad: kvar / monthsTo(g.klart), pct: (g.sparat || 0) / g.mal };
+}
+const subsTotal = () => D.ekonomi.prenumerationer.reduce((a, s) => a + (s.pris || 0), 0);
+const nextDeadlines = () => D.skola.deadlines.filter(d => daysTo(d.datum) >= 0).sort((a, b) => a.datum.localeCompare(b.datum));
+const typClass = t => ({ Prov: 'p-prov', Inlämning: 'p-inl', Tal: 'p-tal' }[t] || 'p-lax');
+
+// ---------- Sidor ----------
+const V = {};
+
+V.oversikt = () => {
+  const b = budget(), dl = nextDeadlines(), mal = D.ekonomi.sparmal;
+  const next = dl[0];
+  return `<div class="grid">
+    <div class="card dark c5"><div class="k">Nästa i skolan</div>
+      ${next ? `<div class="num">${esc(dayText(next.datum))}</div><div class="s" style="margin-top:4px">${esc(next.titel)}</div>
+      <div style="margin-top:12px"><span class="pill ${typClass(next.typ)}" style="background:rgba(255,182,72,.18);color:var(--amber)">${esc(next.typ)}</span> <span class="t3">${esc(next.not || '')}</span></div>` : '<div class="s">Inga deadlines</div>'}
+    </div>
+    <a class="card c4" href="#ekonomi" style="text-decoration:none;color:inherit"><div class="k">${icon('ekonomi')}Potten denna månad</div>
+      <div class="num">${b.pott == null ? '–' : kr(b.pott)}</div><div class="s">${b.pott == null ? 'Fyll i lönen under Ekonomi' : 'lön + CSN − ' + kr(b.fast)}</div></a>
+    <div class="card c3"><div class="k">Prenumerationer</div><div class="num sm">${kr(subsTotal())}</div><div class="s">per månad</div></div>
+    <div class="card c7"><div class="k">${icon('skola')}Kommande</div>
+      ${dl.slice(0, 4).map(d => `<div class="row"><span class="pill ${typClass(d.typ)}">${esc(d.typ)}</span><span class="grow ell">${esc(d.titel)}</span><span class="t3">${esc(dayText(d.datum))}</span></div>`).join('') || '<div class="s">Inget planerat</div>'}
+    </div>
+    <div class="card c5"><div class="k">${icon('mal')}Sparmål</div>
+      ${mal.length ? '' : '<div class="s">Lägg till sparmål under Ekonomi.</div>'}
+      ${mal.map(g => { const p = goalPace(g); return `<div style="margin:6px 0 14px"><div class="flex" style="justify-content:space-between"><b>${esc(g.namn)}</b><span class="t3">${kr(g.sparat)} / ${g.mal ? kr(g.mal) : 'sätt mål'}</span></div>
+        <div class="bar" style="margin-top:7px"><i style="width:${p ? Math.round(p.pct * 100) : 0}%;background:var(--purple)"></i></div></div>`; }).join('')}
+    </div>
+  </div>`;
+};
+
+V.ekonomi = () => {
+  const e = D.ekonomi, b = budget(), m = e.manad;
+  const fondTotal = e.fonder.reduce((a, f) => a + (f.varde || 0), 0);
+  const timmar = e.timmar.pass.reduce((a, p) => a + (p.timmar || 0), 0);
+  return `<div class="grid">
+    <div class="card dark c5"><div class="k">Månadens budget · din regel</div>
+      <div class="flex" style="gap:20px;align-items:center">
+        ${ring(b.inkomst ? Math.min(1, b.fast / Math.max(b.inkomst, 1)) : 0, 104, 'var(--amber)', 'rgba(255,255,255,.12)', b.inkomst ? '' : '–')}
+        <div><div class="t3">Till potten direkt</div><div class="num">${b.pott == null ? '–' : kr(b.pott)}</div><div class="s">${esc(e.regel.text)}</div></div>
+      </div>
+      <div class="flex" style="margin-top:18px">
+        <div class="field" style="flex:1"><label for="lon">Lön denna månad</label><input id="lon" type="number" inputmode="numeric" data-path="ekonomi.manad.lon" value="${m.lon ?? ''}" placeholder="t.ex. 8400"></div>
+        <div class="field" style="flex:1"><label for="csn">CSN</label><input id="csn" type="number" inputmode="numeric" data-path="ekonomi.manad.csn" value="${m.csn ?? ''}"></div>
+      </div>
+    </div>
+    <div class="card c7"><div class="k">Fördelning av ${kr(b.fast)} · använt / budget</div>
+      ${e.regel.fordelning.map((f, i) => { const used = (m.anvant || {})[f.namn]; const isSave = f.namn === 'Sparkonto';
+        const pct = f.belopp ? Math.min(100, Math.round(((used || 0) / f.belopp) * 100)) : 0;
+        return `<div class="hb"><span>${esc(f.namn)}</span>
+          <span class="bar"><i style="width:${isSave ? (f.belopp ? 100 : 0) : pct}%;background:${isSave ? 'var(--green)' : ((used || 0) > f.belopp ? 'var(--red)' : 'var(--blue)')}"></i></span>
+          <span class="v">${isSave ? '' : `<input class="in" style="width:80px !important" type="number" inputmode="numeric" aria-label="Använt på ${esc(f.namn)}" data-path="ekonomi.manad.anvant.${esc(f.namn)}" value="${used ?? 0}"> / `}<input class="in" style="width:80px !important" type="number" inputmode="numeric" aria-label="Budget för ${esc(f.namn)}" data-path="ekonomi.regel.fordelning.${i}.belopp" value="${f.belopp ?? 0}"></span></div>`; }).join('')}
+      <div class="t3" style="margin-top:8px">Skriv in hur mycket varje post får per månad. Resten av lön + CSN går till potten.</div>
+    </div>
+
+    <div class="card c12"><div class="k">${icon('mal')}Sparmål</div>
+      <div class="grid">${e.sparmal.map((g, i) => { const p = goalPace(g);
+        return `<div class="c4" style="min-width:0"><div class="flex" style="justify-content:space-between"><b style="font-size:17px">${esc(g.namn)}</b><span class="t3">klart ${esc(dayText(g.klart))}</span></div>
+          <div class="num sm" style="margin-top:6px">${kr(g.sparat)} <span class="t3" style="font-size:14px;font-weight:600">av ${g.mal ? kr(g.mal) : '–'}</span></div>
+          <div class="bar" style="margin:10px 0"><i style="width:${p ? Math.round(p.pct * 100) : 0}%;background:var(--purple)"></i></div>
+          <div class="s">${p ? (p.kvar ? kr(p.perManad) + '/mån behövs' : 'Klart! 🎉') : 'Skriv in målbelopp'}</div>
+          <div class="t3" style="margin-top:2px">${esc(g.not || '')}</div>
+          <div class="flex" style="margin-top:10px;gap:8px">
+            <input class="in" type="number" inputmode="numeric" aria-label="Insättning till ${esc(g.namn)}" id="ins${i}" placeholder="+ kr" style="flex:1">
+            <button class="btn" data-act="deposit" data-i="${i}">Lägg till</button>
+          </div>
+          ${g.mal ? '' : `<div class="field" style="margin-top:8px"><label for="mal${i}">Mål (kr)</label><input id="mal${i}" type="number" data-path="ekonomi.sparmal.${i}.mal" value=""></div>`}
+        </div>`; }).join('')}
+        <div class="c4" style="min-width:0"><b style="font-size:17px">Nytt sparmål</b>
+          <div class="field" style="margin-top:8px"><label for="gnamn">Vad?</label><input id="gnamn" type="text" placeholder="t.ex. Resa"></div>
+          <div class="flex" style="margin-top:8px"><div class="field" style="flex:1"><label for="gmal">Mål (kr)</label><input id="gmal" type="number"></div>
+            <div class="field" style="flex:1"><label for="gdatum">Klart</label><input id="gdatum" type="date"></div></div>
+          <button class="btn" style="margin-top:10px" data-act="addgoal">Lägg till</button></div>
+      </div>
+    </div>
+
+    <div class="card c6"><div class="k">Avanza · fonder<span class="tag">${e.fonder.length ? 'manuellt' : 'ej kopplat'}</span></div>
+      ${e.fonder.length ? `<div class="num">${kr(fondTotal)}</div>` : ''}
+      ${e.fonder.map((f, i) => `<div class="row"><span class="grow ell">${esc(f.namn)}</span><input class="in" type="number" aria-label="Värde ${esc(f.namn)}" data-path="ekonomi.fonder.${i}.varde" value="${f.varde ?? ''}"><button class="x" aria-label="Ta bort ${esc(f.namn)}" data-act="delfond" data-i="${i}">✕</button></div>`).join('')}
+      <div class="flex" style="margin-top:10px"><input type="text" id="nyfond" placeholder="Fondens namn" aria-label="Ny fond" style="flex:1"><button class="btn ghost" data-act="addfond">Lägg till fond</button></div>
+      <div class="t3" style="margin-top:10px">Kursutveckling och graf kommer när Avanza kopplas.</div>
+    </div>
+
+    <div class="card c6"><div class="k">Prenumerationer<span class="tag">${kr(subsTotal())}/mån</span></div>
+      ${e.prenumerationer.map((s, i) => `<div class="row"><span class="grow ell">${esc(s.namn)}</span><input class="in" type="number" aria-label="Pris ${esc(s.namn)}" placeholder="kr/mån" data-path="ekonomi.prenumerationer.${i}.pris" value="${s.pris ?? ''}"><button class="x" aria-label="Ta bort ${esc(s.namn)}" data-act="delsub" data-i="${i}">✕</button></div>`).join('')}
+      <div class="flex" style="margin-top:10px"><input type="text" id="nysub" placeholder="Ny prenumeration" aria-label="Ny prenumeration" style="flex:1"><button class="btn ghost" data-act="addsub">Lägg till</button></div>
+      <div class="t3" style="margin-top:10px">Senare: hämtas automatiskt från kvitton i Gmail.</div>
+    </div>
+
+    <div class="card c6"><div class="k">Jobb · timmar och lön</div>
+      <div class="flex"><div class="field" style="flex:1"><label for="timlon">Timlön (kr)</label><input id="timlon" type="number" data-path="ekonomi.timmar.timlon" value="${e.timmar.timlon ?? ''}"></div>
+        <div><div class="t3">Den här månaden</div><div class="num sm">${timmar} h</div><div class="s">${e.timmar.timlon ? '≈ ' + kr(timmar * e.timmar.timlon) + ' före skatt' : ''}</div></div></div>
+      <div class="flex" style="margin-top:12px"><input type="date" id="passdag" aria-label="Datum"><input class="in" type="number" id="passh" placeholder="timmar" aria-label="Timmar"><button class="btn ghost" data-act="addpass">Lägg till pass</button></div>
+      ${e.timmar.pass.slice(-5).reverse().map(p => `<div class="row"><span class="grow">${esc(dayText(p.datum))}</span><b>${p.timmar} h</b></div>`).join('')}
+    </div>
+
+    <div class="card c6"><div class="k">Utgifter<span class="tag">ej kopplat</span></div>
+      ${connect('Kortköp från banken', 'Antingen via öppen bankdata (t.ex. Tink) eller en fil du laddar ner från banken en gång i månaden.')}
+    </div>
+  </div>`;
+};
+
+V.skola = () => {
+  const dl = D.skola.deadlines.slice().sort((a, b) => a.datum.localeCompare(b.datum));
+  return `<div class="grid">
+    <div class="card c7"><div class="k">${icon('skola')}Prov, inlämningar och läxor</div>
+      ${dl.map((d, i) => `<div class="row" style="${daysTo(d.datum) < 0 ? 'opacity:.45' : ''}"><span class="pill ${typClass(d.typ)}">${esc(d.typ)}</span>
+        <div class="grow"><div class="ell" style="font-weight:600">${esc(d.titel)}</div><div class="t3 ell">${esc(d.not || '')}</div></div>
+        <span class="t3">${esc(dayText(d.datum))}</span><button class="x" aria-label="Ta bort ${esc(d.titel)}" data-act="deldl" data-i="${i}">✕</button></div>`).join('')}
+      <div class="flex" style="margin-top:12px">
+        <input type="text" id="dltitel" placeholder="Vad?" aria-label="Titel" style="flex:2">
+        <input type="date" id="dldatum" aria-label="Datum" style="flex:1">
+        <select id="dltyp" aria-label="Typ" style="padding:10px;border-radius:12px;border:1px solid rgba(40,40,52,.14)"><option>Prov</option><option>Inlämning</option><option>Läxa</option><option>Tal</option></select>
+        <button class="btn" data-act="adddl">Lägg till</button>
+      </div>
+    </div>
+    <div class="card dark c5"><div class="k">Nedräkning</div>
+      ${nextDeadlines().slice(0, 3).map(d => `<div class="row" style="border-color:rgba(255,255,255,.08)"><div class="num sm" style="width:64px">${Math.max(0, daysTo(d.datum))}</div><div class="grow"><div style="font-weight:600">${esc(d.titel)}</div><div class="t3">dagar kvar · ${esc(d.typ)}</div></div></div>`).join('') || '<div class="s">Inget planerat</div>'}
+    </div>
+    <div class="card c12"><div class="k">Schema</div>${connect('Schemat från Skola24', 'Då syns veckans lektioner med tid och sal här och i panelen.')}</div>
+  </div>`;
+};
+
+V.inkorg = () => `<div class="grid">
+  <div class="card c12"><div class="k">${icon('inkorg')}Viktigt från Gmail och Slack</div>
+    ${connect('Mail, Slack och inbjudningar', 'De hämtas redan i panelen på din MacBook. Nästa steg: Mac minin hämtar dem också, så att de syns här, med svar direkt.')}</div>
+</div>`;
+
+V.vectif = () => `<div class="grid">
+  <div class="card dark c4"><div class="k">Kunder</div><div class="num">–</div><div class="s">kopplas från Vectifs adminpanel</div></div>
+  <div class="card c4"><div class="k">Intäkter denna månad</div><div class="num">–</div><div class="s">Stripe</div></div>
+  <div class="card c4"><div class="k">Minuter video</div><div class="num">–</div><div class="s">denna period</div></div>
+  <div class="card c12"><div class="k">${icon('vectif')}Kvar att göra innan lansering</div>
+    ${D.vectif.att_gora.map((t, i) => `<div class="row"><span class="grow">${esc(t)}</span><button class="x" aria-label="Klar: ${esc(t)}" data-act="vdone" data-i="${i}">✓</button></div>`).join('') || '<div class="s">Inget här än</div>'}
+    <div class="flex" style="margin-top:10px"><input type="text" id="vny" placeholder="Ny punkt" aria-label="Ny punkt" style="flex:1"><button class="btn ghost" data-act="vadd">Lägg till</button></div>
+  </div>
+</div>`;
+
+V.mal = () => `<div class="grid">
+  ${D.mal.mal.map((g, i) => `<div class="card c4"><div class="k">${esc(g.enhet)}<button class="x" style="margin-left:auto" aria-label="Ta bort ${esc(g.namn)}" data-act="delmal" data-i="${i}">✕</button></div>
+    <div class="flex" style="gap:18px">${ring(g.mal ? g.nu / g.mal : 0, 92, 'var(--purple)', 'var(--fill)')}<div><div class="num sm">${esc(g.namn)}</div><div class="s">${g.nu} av ${g.mal}</div></div></div>
+    <div class="flex" style="margin-top:14px;gap:8px"><button class="btn ghost" data-act="malminus" data-i="${i}" aria-label="Minska">−</button><button class="btn" data-act="malplus" data-i="${i}" aria-label="Öka">+1</button></div></div>`).join('')}
+  <div class="card c4"><div class="k">Nytt mål</div>
+    <div class="field"><label for="mnamn">Namn</label><input id="mnamn" type="text" placeholder="t.ex. Läsa"></div>
+    <div class="flex" style="margin-top:8px"><div class="field" style="flex:1"><label for="mmal">Mål</label><input id="mmal" type="number" value="3"></div><div class="field" style="flex:2"><label for="menhet">Enhet</label><input id="menhet" type="text" value="gånger i veckan"></div></div>
+    <button class="btn" style="margin-top:12px" data-act="addmal">Lägg till mål</button></div>
+</div>`;
+
+// ---------- Visa ----------
+function page() { const p = location.hash.slice(1); return V[p] ? p : 'oversikt'; }
+function render() {
+  const p = page();
+  document.getElementById('nav').innerHTML = `<div class="brand"><span class="ldot"></span>Dashboard</div>` +
+    PAGES.map(([id, name]) => `<a href="#${id}" class="${id === p ? 'on' : ''}" ${id === p ? 'aria-current="page"' : ''}>${icon(id)}${name}</a>`).join('');
+  const title = PAGES.find(x => x[0] === p)[1];
+  const when = new Date().toLocaleDateString('sv-SE', { weekday: 'long', day: 'numeric', month: 'long' });
+  document.getElementById('main').innerHTML = `<div class="page"><header><h1>${title}</h1><span class="when">${when}</span></header>${V[p]()}</div>`;
+  document.title = title + ' · Dashboard';
+}
+window.addEventListener('hashchange', () => { render(); window.scrollTo(0, 0); });
+
+// Ändringar i fält sparas direkt.
+document.addEventListener('change', ev => {
+  const el = ev.target; if (!el.dataset || !el.dataset.path) return;
+  setPath(el.dataset.path, el.type === 'number' ? num(el.value) : el.value);
+  render();
+});
+// Knappar.
+document.addEventListener('click', ev => {
+  const b = ev.target.closest('[data-act]'); if (!b) return;
+  const i = +b.dataset.i, e = D.ekonomi, val = id => document.getElementById(id).value.trim();
+  const acts = {
+    deposit: () => { const n = num(val('ins' + i)); if (n) { e.sparmal[i].sparat = (e.sparmal[i].sparat || 0) + n; save('ekonomi'); } },
+    addfond: () => { const n = val('nyfond'); if (n) { e.fonder.push({ namn: n, varde: null }); save('ekonomi'); } },
+    delfond: () => { e.fonder.splice(i, 1); save('ekonomi'); },
+    addsub: () => { const n = val('nysub'); if (n) { e.prenumerationer.push({ namn: n, pris: null }); save('ekonomi'); } },
+    delsub: () => { e.prenumerationer.splice(i, 1); save('ekonomi'); },
+    addpass: () => { const d = val('passdag'), h = num(val('passh')); if (d && h) { e.timmar.pass.push({ datum: d, timmar: h }); save('ekonomi'); } },
+    adddl: () => { const t = val('dltitel'), d = val('dldatum'); if (t && d) { D.skola.deadlines.push({ titel: t, datum: d, typ: val('dltyp') }); save('skola'); } },
+    deldl: () => { const sorted = D.skola.deadlines.slice().sort((a, b) => a.datum.localeCompare(b.datum)); D.skola.deadlines.splice(D.skola.deadlines.indexOf(sorted[i]), 1); save('skola'); },
+    vdone: () => { D.vectif.att_gora.splice(i, 1); save('vectif'); },
+    vadd: () => { const t = val('vny'); if (t) { D.vectif.att_gora.push(t); save('vectif'); } },
+    addgoal: () => { const n = val('gnamn'); if (n) { e.sparmal.push({ namn: n, mal: num(val('gmal')), sparat: 0, klart: val('gdatum') || new Date().toISOString().slice(0, 10), not: '' }); save('ekonomi'); } },
+    addmal: () => { const n = val('mnamn'); if (n) { D.mal.mal.push({ namn: n, enhet: val('menhet'), mal: num(val('mmal')) || 1, nu: 0 }); save('mal'); } },
+    delmal: () => { D.mal.mal.splice(i, 1); save('mal'); },
+    malplus: () => { D.mal.mal[i].nu++; save('mal'); },
+    malminus: () => { D.mal.mal[i].nu = Math.max(0, D.mal.mal[i].nu - 1); save('mal'); },
+  };
+  if (acts[b.dataset.act]) { acts[b.dataset.act](); render(); }
+});
+
+load().catch(() => { document.getElementById('main').innerHTML = '<p class="s">Kunde inte nå servern.</p>'; });
+</script>
+</body>
+</html>
