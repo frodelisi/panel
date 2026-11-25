@@ -31,15 +31,17 @@ enum Layout {
 
     /// Kortets vänsterkant inom raden. Utfällt kort centreras över sin plats men stannar inom panelen.
     static func x(_ i: Int, open: Bool, n: Int) -> CGFloat {
-        let left = CGFloat(i) * (cw + gap)
+        let left: CGFloat = CGFloat(i) * (cw + gap)
         guard open else { return left }
-        let centered = left + cw / 2 - fw / 2
-        return min(max(centered, 0), max(0, contentWidth(n) - fw))
+        let centered: CGFloat = left + cw / 2 - fw / 2
+        let maxX: CGFloat = max(0, contentWidth(n) - fw)
+        return min(max(centered, 0), maxX)
     }
 
     static func windowSize(_ n: Int) -> CGSize {
-        CGSize(width: side * 2 + pad * 2 + contentWidth(n),
-               height: rowTop + max(ch + pad, maxFull) + bottom)
+        let w: CGFloat = side * 2 + pad * 2 + contentWidth(n)
+        let h: CGFloat = rowTop + max(ch + pad, maxFull) + bottom
+        return CGSize(width: w, height: h)
     }
 }
 

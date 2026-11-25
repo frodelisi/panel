@@ -136,10 +136,19 @@ final class PanelController {
         let size = hosting.fittingSize
         let f = screen.frame
         let top = screen.visibleFrame.maxY            // precis under menyraden, så att menyraden alltid syns
-        let center = screen.auxiliaryTopLeftArea.map { f.minX + $0.width + (f.width - $0.width - (screen.auxiliaryTopRightArea?.width ?? 0)) / 2 } ?? f.midX
-        var x = center - size.width / 2
-        x = min(max(x, f.minX - Layout.side + 8), f.maxX - size.width + Layout.side - 8)
-        return NSRect(x: x, y: top - size.height + Layout.top - 2, width: size.width, height: size.height)
+        // Mitt under kameran om skärmen har en, annars mitt på skärmen.
+        var center: CGFloat = f.midX
+        if let left = screen.auxiliaryTopLeftArea {
+            let right: CGFloat = screen.auxiliaryTopRightArea?.width ?? 0
+            let notchWidth: CGFloat = f.width - left.width - right
+            center = f.minX + left.width + notchWidth / 2
+        }
+        let lowest: CGFloat = f.minX - Layout.side + 8
+        let highest: CGFloat = f.maxX - size.width + Layout.side - 8
+        var x: CGFloat = center - size.width / 2
+        x = min(max(x, lowest), highest)
+        let y: CGFloat = top - size.height + Layout.top - 2
+        return NSRect(x: x, y: y, width: size.width, height: size.height)
     }
 
     func show(on screen: NSScreen? = nil) {
