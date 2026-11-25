@@ -25,6 +25,7 @@ from playwright.sync_api import sync_playwright
 HOME = Path.home() / "Library" / "Application Support" / "Panel"
 PROFILE = HOME / "skola24" / "profil"
 STATE = HOME / "skola24" / "state.json"           # adressen till ditt schema
+COOKIES = HOME / "skola24" / "inloggning.json"     # inloggningen (även den som annars glöms när fönstret stängs)
 DATA = HOME / "dashboard"
 SKOLA = DATA / "skola.json"
 START_URL = "https://www.skola24.se/"
@@ -56,6 +57,55 @@ def save_skola(schema=None, status=None):
     os.replace(tmp, SKOLA)
 
 
+def save_cookies(ctx):
+    try:
+        state = ctx.storage_state()
+        COOKIES.parent.mkdir(parents=True, exist_ok=True)
+        tmp = COOKIES.with_suffix(".tmp")
+        tmp.write_text(json.dumps(state), encoding="utf-8")
+        os.chmod(tmp, 0o600)
+        os.replace(tmp, COOKIES)
+    except Exception:
+        pass
+
+
+def restore_cookies(ctx):
+    try:
+        cookies = json.loads(COOKIES.read_text(encoding="utf-8")).get("cookies") or []
+        if cookies:
+            ctx.add_cookies(cookies)
+    except (OSError, ValueError, Exception):
+        pass
+
+
+def try_login_again(page):
+    """Inloggningen hos Skola24 har gått ut: klicka på Logga in och låt Skolplattformen/Microsoft
+    (som kommer ihåg dig) skicka tillbaka oss. Väljer ditt konto om Microsoft frågar."""
+    for name in ("Logga in", "Inloggning", "Log in", "Sign in"):
+        try:
+            target = page.get_by_role("link", name=name).or_(page.get_by_role("button", name=name)).first
+            if target.count():
+                target.click(timeout=5000)
+                break
+        except Exception:
+            continue
+    for _ in range(4):
+        try:
+            page.wait_for_load_state("networkidle", timeout=15000)
+        except Exception:
+            pass
+        if "microsoftonline" in page.url:
+            for sel in ("div[data-test-id]", "div[role=button]:has-text('@')", "input[type=submit]"):
+                try:
+                    el = page.locator(sel).first
+                    if el.count():
+                        el.click(timeout=5000)
+                        break
+                except Exception:
+                    continue
+        page.wait_for_timeout(1500)
+
+
 def login():
     PROFILE.mkdir(parents=True, exist_ok=True)
     seen = {}
@@ -76,7 +126,8 @@ def login():
         print("Stäng sedan webbläsarfönstret.")
         try:
             while ctx.pages:
-                ctx.pages[0].wait_for_timeout(500)
+                ctx.pages[0].wait_for_timeout(1000)
+                save_cookies(ctx)          # Skola24 glömmer inloggningen när fönstret stängs, så den sparas hela tiden
         except Exception:
             pass
         try:
@@ -233,6 +284,7 @@ def fetch():
     captured = {}
     with sync_playwright() as p:
         ctx = p.chromium.launch_persistent_context(str(PROFILE), headless=True)
+        restore_cookies(ctx)
         page = ctx.new_page()
 
         def on_response(res):
@@ -244,16 +296,26 @@ def fetch():
                     pass
 
         page.on("response", on_response)
-        try:
-            page.goto(url, wait_until="networkidle", timeout=60000)
-            page.wait_for_timeout(3000)
-        except Exception:
-            pass
+        def open_schedule():
+            try:
+                page.goto(url, wait_until="networkidle", timeout=60000)
+                page.wait_for_timeout(3000)
+            except Exception:
+                pass
+
+        open_schedule()
+        if "body" not in captured:
+            try_login_again(page)
+            open_schedule()
 
         if "body" not in captured:
             DATA.mkdir(parents=True, exist_ok=True)
             page.screenshot(path=str(DATA / "skola24-fel.png"))
-            login_page = any(w in page.url for w in ("login", "microsoftonline", "sso", "auth"))
+            try:
+                logged_out_viewer = page.get_by_text("Skola/Enhet").count() > 0
+            except Exception:
+                logged_out_viewer = False
+            login_page = logged_out_viewer or any(w in page.url for w in ("login", "microsoftonline", "sso", "auth"))
             fel = "Inloggningen har gått ut. Kör logga-in-skola24.command på Mac minin." if login_page \
                 else "Kunde inte läsa schemat (se skola24-fel.png i dashboardens mapp)."
             save_skola(status={"ok": False, "fel": fel, "tid": dt.datetime.now().isoformat(timespec="minutes")})
@@ -262,6 +324,7 @@ def fetch():
             ctx.close()
             return False
 
+        save_cookies(ctx)                       # håll inloggningen färsk
         (DATA / "skola24-raw.json").write_text(json.dumps(captured["body"], ensure_ascii=False)[:500_000], encoding="utf-8")
         this_week = dt.date.today().isocalendar()[1]
         schema = lessons_from(captured["body"], this_week)
