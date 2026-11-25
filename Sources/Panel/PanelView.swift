@@ -549,7 +549,10 @@ struct WeatherIcon: View {
         Image(systemName: symbol)
             .symbolRenderingMode(.palette)
             .foregroundStyle(
-                theme.dark ? Color.white.opacity(0.85) : Color(white: 0.55),
+                // Rena sol- och månsymboler har bara ett lager: färga det direkt.
+                symbol.hasPrefix("sun") ? Color(red: 1, green: 0.72, blue: 0.1)
+                    : symbol.hasPrefix("moon") ? Color(red: 0.55, green: 0.6, blue: 0.9)
+                    : (theme.dark ? Color.white.opacity(0.85) : Color(white: 0.55)),
                 sunny ? Color(red: 1, green: 0.72, blue: 0.1) : moon ? Color(red: 0.55, green: 0.6, blue: 0.9)
                     : wet ? Color(red: 0.2, green: 0.55, blue: 1) : (theme.dark ? Color.white.opacity(0.6) : Color(white: 0.7)))
             .font(.system(size: size))
