@@ -65,7 +65,10 @@ def login():
 
         def on_request(req):
             if "render/timetable" in req.url and req.method == "POST":
-                seen["url"] = page.url        # sidan där schemat visades
+                try:
+                    seen["url"] = req.frame.page.url      # fliken där schemat visades (kan vara en ny flik)
+                except Exception:
+                    pass
 
         ctx.on("request", on_request)
         page.goto(load_state().get("url") or START_URL)
@@ -88,6 +91,30 @@ def login():
     return False
 
 
+# Kurskoder från Skola24 (t.ex. MATE2B00X) → vanliga ämnesnamn.
+SUBJECTS = {
+    "ENGE": "Engelska", "MATE": "Matematik", "SVEN": "Svenska", "SVAS": "Svenska som andraspråk",
+    "SAMH": "Samhällskunskap", "HIST": "Historia", "GEOG": "Geografi", "RELI": "Religion",
+    "FILO": "Filosofi", "PSYK": "Psykologi", "IDRO": "Idrott", "NAKU": "Naturkunskap",
+    "BIOL": "Biologi", "KEMI": "Kemi", "FYSI": "Fysik", "FOET": "Företagsekonomi",
+    "ENTR": "Entreprenörskap", "MARK": "Marknadsföring", "PRIV": "Privatjuridik", "LEDA": "Ledarskap",
+    "PROG": "Programmering", "WEBB": "Webbutveckling", "BILD": "Bild", "MUSI": "Musik",
+    "INFO": "Informationsteknik", "DIGI": "Digitalt skapande", "KOMM": "Kommunikation",
+}
+LANGUAGES = {"SPA": "Spanska", "TYS": "Tyska", "FRA": "Franska", "ITA": "Italienska", "KIN": "Kinesiska", "JAP": "Japanska"}
+
+
+def pretty(code):
+    c = (code or "").strip()
+    up = c.upper()
+    if up.startswith("MODO"):                     # moderna språk: MODO2000XSPA
+        for k, v in LANGUAGES.items():
+            if up.endswith(k):
+                return v
+        return "Moderna språk"
+    return SUBJECTS.get(up[:4], c) if len(up) >= 5 and up[:4].isalpha() and up[4].isdigit() else c
+
+
 def lessons_from(data, week):
     """Skola24 skickar lektioner som lessonInfo: texts, timeStart, timeEnd, dayOfWeekNumber."""
     info = (data.get("data") or {}).get("lessonInfo") or []
@@ -101,7 +128,8 @@ def lessons_from(data, week):
             "dag": l.get("dayOfWeekNumber"),            # 1 = måndag
             "start": l["timeStart"][:5],
             "slut": (l.get("timeEnd") or "")[:5],
-            "amne": texts[0],
+            "amne": pretty(texts[0]),
+            "kurs": texts[0],
             "larare": texts[1] if len(texts) > 2 else "",
             "sal": texts[-1] if len(texts) > 1 else "",
             "text": texts,
