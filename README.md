@@ -95,8 +95,14 @@ Ett Skola24-fönster öppnas och får stå kvar: logga in (via Skolplattformen),
 (Skola) och lägger in lektionerna i Google-kalendern (kräver att Panel på Mac minin är inloggad med Google).
 Stängs fönstret öppnas det igen. Går inloggningen ut (t.ex. efter omstart) får du en notis: logga in i fönstret.
 
-**Utanför hemmet:** installera Tailscale (gratis) på Mac minin, MacBooken och mobilen, så når du
-dashboarden överallt utan att öppna något mot internet.
+**Utanför hemmet (skoldatorn, mobilen på 4G):** installera appen Tailscale på **Mac minin** (bara där)
+och logga in, sedan:
+```
+~/Panel/dashboard/oppna-utifran.command
+```
+Du får en https-adress (…ts.net) som fungerar i vilken webbläsare som helst, utan installation där du är.
+Kräver ett lösenord på minst 12 tecken; efter 8 felaktiga försök spärras inloggningen i 15 minuter.
+Stäng av med `~/Panel/dashboard/oppna-utifran.command av`.
 
 ## Ta bort
 

@@ -293,26 +293,43 @@ struct CompactCard: View {
         }
     }
 
-    /// Mörka hjältekortet: ring med dagens framsteg.
+    /// Mörka hjältekortet: ringen visar dagens deadlines (med datum i dag eller tidigare) och fylls när du bockar av.
     private var tasks: some View {
         let left = store.tasks.count
+        let dueNow = store.tasks.filter { isDueByToday($0.due) }.count
         let done = store.doneToday
-        let pct = (done + left) > 0 ? Double(done) / Double(done + min(left, 5)) : 0
+        let total = done + dueNow
+        let pct: Double = total > 0 ? Double(done) / Double(total) : 1
+        let line: String = {
+            if dueNow == 0 && done == 0 { return "inget måste göras i dag" }
+            if dueNow == 0 { return "allt för i dag klart 🎉" }
+            return done > 0 ? "\(dueNow) i dag · \(done) klara" : "\(dueNow) ska göras i dag"
+        }()
         return HStack(spacing: 12) {
             ZStack {
                 Circle().stroke(Color.white.opacity(0.12), lineWidth: 7)
                 Circle().trim(from: 0, to: pct).stroke(kindColor(.tasks), style: StrokeStyle(lineWidth: 7, lineCap: .round)).rotationEffect(.degrees(-90))
-                Text("\(Int(pct * 100))%").font(.system(size: 13, weight: .heavy, design: .rounded)).foregroundColor(.white)
+                Text(dueNow == 0 ? "✓" : "\(dueNow)").font(.system(size: 18, weight: .heavy, design: .rounded)).foregroundColor(.white)
             }
             .frame(width: 62, height: 62)
             VStack(alignment: .leading, spacing: 3) {
                 Text("Att göra").font(.system(size: 12, weight: .bold, design: .rounded)).foregroundColor(Color.white.opacity(0.6))
                 Text("\(left) kvar").font(.system(size: 22, weight: .heavy, design: .rounded)).foregroundColor(.white)
-                Text(done == 0 ? "inget klart i dag" : "\(done) klara i dag").font(.system(size: 12)).foregroundColor(Color.white.opacity(0.6))
+                Text(line).font(.system(size: 12)).foregroundColor(Color.white.opacity(0.6)).lineLimit(2)
             }
             Spacer(minLength: 0)
         }
         .frame(maxHeight: .infinity)
+    }
+
+    /// Google sparar bara datumet (midnatt UTC). Räknas som "i dag" om det är i dag eller redan passerat.
+    private func isDueByToday(_ due: Date?) -> Bool {
+        guard let due else { return false }
+        var utc = Calendar(identifier: .gregorian)
+        utc.timeZone = TimeZone(identifier: "UTC")!
+        let c = utc.dateComponents([.year, .month, .day], from: due)
+        guard let day = Calendar.current.date(from: c) else { return false }
+        return day <= Calendar.current.startOfDay(for: Date())
     }
 
     /// Musiken i mitten: omslag, låt och artist.

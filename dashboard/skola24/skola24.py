@@ -33,6 +33,10 @@ SKOLA = DATA / "skola.json"
 START_URL = "https://www.skola24.se/"
 
 
+def log(text):
+    print(f"{dt.datetime.now():%Y-%m-%d %H:%M} {text}", flush=True)
+
+
 def notify(text):
     subprocess.run(["osascript", "-e", f'display notification "{text}" with title "Skolschema"'], check=False)
 
@@ -399,7 +403,7 @@ def process(ctx, body, request):
     if kalender:
         status["kalender"] = kalender
     save_skola(schema=schema, status=status)
-    print(f"{dt.datetime.now():%H:%M} Läste {len(schema)} lektioner." + (f" {kalender}" if kalender else ""), flush=True)
+    log(f"Sparade {len(schema)} lektioner." + (f" {kalender}" if kalender else (" Google-kalendern uppdaterad." if schema != before else " Oförändrat.")))
 
 
 def daemon():
@@ -418,26 +422,35 @@ def daemon():
                 try:
                     body = res.json()
                     if (body.get("data") or {}).get("lessonInfo"):
+                        if not latest.get("body"):
+                            log(f"Schemat syns i fönstret ({len(body['data']['lessonInfo'])} lektioner).")
                         latest["body"], latest["request"] = body, res.request
                         STATE.write_text(json.dumps({"url": res.frame.page.url}), encoding="utf-8")
                 except Exception:
                     pass
 
         ctx.on("response", on_response)
-        page.goto(load_state().get("url") or START_URL)
+        start = load_state().get("url") or START_URL
+        log(f"Startar Skola24-fönstret: {start}")
+        try:
+            page.goto(start)
+        except Exception as e:
+            log(f"Kunde inte öppna sidan: {e}")
         last_saved = 0.0
         last_notice = 0.0
         while True:
             # Vänta 15 minuter (eller tills fönstret stängs), och spara direkt om du själv visar schemat.
             for _ in range(15 * 60):
                 if not ctx.pages:
+                    log("Fönstret stängdes. Det öppnas igen om en halv minut.")
                     return                       # fönstret stängdes: launchd startar det igen
                 if latest.get("body") and time.time() - last_saved > 60:
                     try:
                         process(ctx, latest["body"], latest["request"])
                         last_saved = time.time()
-                    except Exception as e:
-                        print("Fel:", e, flush=True)
+                    except Exception:
+                        import traceback
+                        log("Fel när schemat skulle sparas:\n" + traceback.format_exc())
                     latest.clear()
                 try:
                     ctx.pages[0].wait_for_timeout(1000)
@@ -448,8 +461,12 @@ def daemon():
                 ctx.pages[0].reload(wait_until="networkidle", timeout=60000)
                 ctx.pages[0].wait_for_timeout(5000)
                 save_cookies(ctx)
-            except Exception:
-                pass
+            except Exception as e:
+                log(f"Kunde inte ladda om: {e}")
+            if latest.get("body"):
+                log("Laddade om: schemat syns.")
+            else:
+                log(f"Laddade om: inget schema syns (sidan: {ctx.pages[0].url if ctx.pages else '-'}). Utloggad?")
             if not latest.get("body") and time.time() - last_notice > 3600:
                 save_skola(status={"ok": False, "fel": "Logga in i Skola24-fönstret på Mac minin igen.",
                                    "tid": dt.datetime.now().isoformat(timespec="minutes")})

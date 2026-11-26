@@ -12,6 +12,8 @@ import json
 import os
 import re
 import shutil
+import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -23,6 +25,36 @@ PASSWORD_FILE = DATA / "losenord"
 PORT = int(os.environ.get("PORT", "8765"))
 MAX_BODY = 1_000_000
 NAME = re.compile(r"^[a-z]{1,20}$")
+
+# Spärr mot gissning av lösenordet: efter för många fel stängs inloggningen en stund.
+MAX_FAILS = 8            # felaktiga försök …
+WINDOW = 10 * 60         # … inom 10 minuter …
+LOCKOUT = 15 * 60        # … ger 15 minuters spärr
+_fails = {}
+_locked_until = {}
+_lock = threading.Lock()
+
+
+def client_id(handler):
+    # Bakom Tailscale Funnel kommer allt från datorn själv; den riktiga adressen är den SISTA i
+    # X-Forwarded-For (den som Tailscale lade till). De första kan besökaren själv hitta på.
+    forwarded = [p.strip() for p in handler.headers.get("X-Forwarded-For", "").split(",") if p.strip()]
+    return forwarded[-1] if forwarded else handler.client_address[0]
+
+
+def is_locked(who):
+    with _lock:
+        return _locked_until.get(who, 0) > time.time()
+
+
+def record_fail(who):
+    now = time.time()
+    with _lock:
+        recent = [t for t in _fails.get(who, []) if now - t < WINDOW] + [now]
+        _fails[who] = recent
+        if len(recent) >= MAX_FAILS:
+            _locked_until[who] = now + LOCKOUT
+            _fails[who] = []
 
 
 def data_names():
@@ -58,6 +90,10 @@ class Handler(BaseHTTPRequestHandler):
         if not password:
             self.reply(500, "text/plain", "Inget lösenord satt. Kör installera-dashboard.command.".encode())
             return False
+        who = client_id(self)
+        if is_locked(who):
+            self.reply(429, "text/plain; charset=utf-8", "För många felaktiga lösenord. Försök igen om en kvart.".encode())
+            return False
         header = self.headers.get("Authorization", "")
         if header.startswith("Basic "):
             try:
@@ -66,6 +102,7 @@ class Handler(BaseHTTPRequestHandler):
                     return True
             except ValueError:
                 pass
+            record_fail(who)
         self.send_response(401)
         self.send_header("WWW-Authenticate", 'Basic realm="Dashboard", charset="UTF-8"')
         self.send_header("Content-Length", "0")
